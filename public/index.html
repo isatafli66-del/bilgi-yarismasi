@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yarışmaya Katıl!</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        .gizli { display: none !important; }
+        
+        #girisAlani { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #46178f; color: white; padding: 20px; }
+        .logo { font-size: 40px; font-weight: bold; margin-bottom: 20px; }
+        input { padding: 15px; font-size: 20px; width: 90%; max-width: 400px; margin-bottom: 15px; border-radius: 4px; border: none; text-align: center; font-weight: bold; outline: none; }
+        .katil-btn { background: #333; color: white; border: none; padding: 15px; font-size: 20px; font-weight: bold; border-radius: 4px; width: 90%; max-width: 400px; cursor: pointer; box-shadow: 0 4px 0 #111; }
+        
+        #oyunAlani { flex: 1; display: flex; flex-direction: column; background: #f2f2f2; padding: 10px; }
+        #bilgiBar { background: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #soruBaslik { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        #soruResmi { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; }
+        
+        .cevap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; margin-bottom: 10px; }
+        .btn { border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; gap: 10px; }
+        .btn-a { background: #e21b3c; } .btn-b { background: #1368ce; } .btn-c { background: #d89e00; } .btn-d { background: #26890c; }
+        
+        .harf-ikon { width: 40px; height: 40px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
+        .cevap-metni { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+    </style>
+</head>
+<body>
+
+    <div id="girisAlani">
+        <div class="logo">Bilgi Yarışması</div>
+        <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
+        <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
+    </div>
+
+    <div id="oyunAlani" class="gizli">
+        <div id="bilgiBar">⏳ <span id="sureMetni">0</span> saniye</div>
+        <h3 id="soruBaslik">Sıradaki soru bekleniyor...</h3>
+        <img id="soruResmi" src="" class="gizli" alt="Görsel">
+        
+        <div id="cevapButonlari" class="cevap-grid gizli">
+            <button class="btn btn-a" onclick="cevapVer('A')"><div class="harf-ikon">A</div><span class="cevap-metni" id="txtA">A</span></button>
+            <button class="btn btn-b" onclick="cevapVer('B')"><div class="harf-ikon">B</div><span class="cevap-metni" id="txtB">B</span></button>
+            <button class="btn btn-c" onclick="cevapVer('C')"><div class="harf-ikon">C</div><span class="cevap-metni" id="txtC">C</span></button>
+            <button class="btn btn-d" onclick="cevapVer('D')"><div class="harf-ikon">D</div><span class="cevap-metni" id="txtD">D</span></button>
+        </div>
+
+        <div id="mesajAlani" class="gizli" style="font-size: 20px; font-weight: bold; margin-top: 50px;"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        document.getElementById('katilBtn').addEventListener('click', () => {
+            const isim = document.getElementById('isimInput').value.trim();
+            if(isim) {
+                socket.emit('yeni_oyuncu', isim);
+                document.getElementById('girisAlani').classList.add('gizli');
+                document.getElementById('oyunAlani').classList.remove('gizli');
+                gosterMesaj("Bağlandın! Ekrana bak... 👀");
+            }
+        });
+
+        socket.on('yeni_oyun_basladi', () => { document.getElementById('girisAlani').classList.remove('gizli'); document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('isimInput').value = ""; });
+
+        function gosterMesaj(metin) {
+            document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli');
+            const msg = document.getElementById('mesajAlani'); msg.innerText = metin; msg.classList.remove('gizli');
+        }
+
+        socket.on('yeni_soru', (gelenSoru) => {
+            document.getElementById('mesajAlani').classList.add('gizli');
+            document.getElementById('soruBaslik').innerText = gelenSoru.soru;
+            const resim = document.getElementById('soruResmi');
+            if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
+            document.getElementById('txtA').innerText = gelenSoru.secenekler.A; document.getElementById('txtB').innerText = gelenSoru.secenekler.B; document.getElementById('txtC').innerText = gelenSoru.secenekler.C; document.getElementById('txtD').innerText = gelenSoru.secenekler.D;
+            document.getElementById('cevapButonlari').classList.remove('gizli');
+        });
+
+        socket.on('zaman_guncelle', (kalanSaniye) => { document.getElementById('sureMetni').innerText = kalanSaniye; });
+        
+        // YENİ: Telefondaki oyunculara giden dinamik uyarılar
+        socket.on('sure_bitti', () => { gosterMesaj("Süre Doldu! Diğer soruyu bekleyin... ⏳"); });
+        socket.on('skor_tablosunu_goster', () => { gosterMesaj("Puan durumu ekranda! 👀"); });
+        socket.on('quiz_bitti_bekle', () => { gosterMesaj("Yarışma tamamlandı! Sonuçlar ekrana yansıtılacak... 🎊"); });
+        socket.on('quiz_bitti_final', () => { gosterMesaj("🏆 Yarışma Bitti! Kazananlar ekranda!"); });
+
+        function cevapVer(secenek) {
+            socket.emit('cevap_gonder', secenek);
+            gosterMesaj("Cevabın alındı! Bekleniyor...");
+        }
+    </script>
+</body>
+</html>

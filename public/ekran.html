@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ana Ekran</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #46178f; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow: hidden; }
+        .gizli { display: none !important; }
+        
+        #soruAlani { text-align: center; width: 90%; max-width: 1000px; margin-top: 40px; z-index: 10; }
+        #soruBaslik { font-size: 40px; font-weight: bold; background: white; color: #333; padding: 30px; border-radius: 12px; box-shadow: 0 6px 0px #ccc; margin-bottom: 30px; }
+        #soruResmi { max-width: 100%; height: 350px; object-fit: contain; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 20px; }
+        
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 90%; max-width: 1000px; margin-bottom: 40px; z-index: 10; }
+        .secenek-kart { padding: 30px; font-size: 28px; font-weight: bold; border-radius: 8px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); text-align: left; display: flex; align-items: center; }
+        .s-a { background: #e21b3c; } .s-b { background: #1368ce; } .s-c { background: #d89e00; } .s-d { background: #26890c; }
+        .harf-ikon { width: 45px; height: 45px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin-right: 20px; flex-shrink: 0; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
+
+        #skorBord { background: white; color: #333; width: 60%; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px; z-index: 10; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { padding: 15px; font-size: 24px; font-weight: bold; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; }
+        
+        #podyumEkrani { text-align: center; margin-top: 50px; z-index: 10; }
+        .kupa { font-size: 100px; margin-bottom: 20px; animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-30px);} 60% {transform: translateY(-15px);} }
+
+        .bekleme-ekrani { font-size: 50px; font-weight: bold; text-align: center; margin-top: 20vh; animation: pulse 2s infinite; z-index: 10; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        #zamanlayici { position: absolute; left: 30px; top: 30px; background: #864cbf; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; border: 5px solid white; transition: 0.2s; z-index: 10; }
+        
+        .ses-btn { background: #e21b3c; border: none; color: white; padding: 15px 30px; font-size: 24px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 40px; box-shadow: 0 6px 0px #b81631; transition: 0.1s; }
+        .ses-btn:active { transform: translateY(6px); box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <div id="zamanlayici" class="gizli">0</div>
+    
+    <div id="bekleme" class="bekleme-ekrani">Yarışma Başlamak Üzere!<br><span style="font-size: 24px;">Lütfen telefonunuzdan bağlanın...</span><br><button id="sesBtn" class="ses-btn">🔊 Ses Efektlerini Aç</button></div>
+    
+    <div id="araBekleme" class="bekleme-ekrani gizli">Süre Doldu!<br><span style="font-size: 30px;">Sıradaki soru bekleniyor...</span></div>
+    <div id="sonBekleme" class="bekleme-ekrani gizli">Yarışma Tamamlandı!<br><span style="font-size: 30px;">Sonuçlar hesaplanıyor... Lütfen bekleyin.</span></div>
+
+    <div id="oyunAlani" class="gizli" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div id="soruAlani"><div id="soruBaslik">Soru Yükleniyor...</div><img id="soruResmi" src="" alt="Görsel"></div>
+        <div id="secenekler" class="grid-layout"></div>
+    </div>
+
+    <div id="skorBord" class="gizli">
+        <h2 style="text-align: center; font-size: 32px; border-bottom: 3px solid #eee; padding-bottom: 10px;">🏆 PUAN DURUMU</h2>
+        <ul id="skorListesi"></ul>
+    </div>
+
+    <div id="podyumEkrani" class="gizli">
+        <div class="kupa">🏆</div><h1 style="font-size: 60px;">YARIŞMA BİTTİ!</h1><h2 style="font-size: 40px; color: #f1c40f;">İşte Kazananlar</h2>
+        <div id="kazananlarListesi" style="font-size: 30px; font-weight: bold; margin-top: 30px; background: white; color: #333; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let sesAktif = false;
+        const sesContext = new (window.AudioContext || window.webkitAudioContext)();
+        const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
+
+        document.getElementById('sesBtn').addEventListener('click', () => {
+            sesAktif = true; if(sesContext.state === 'suspended') sesContext.resume();
+            alkisSesi.volume = 0; alkisSesi.play().then(() => { alkisSesi.pause(); alkisSesi.currentTime = 0; alkisSesi.volume = 1; }).catch(e => console.log(e));
+            document.getElementById('sesBtn').style.display = 'none'; tickSesi(1000); 
+        });
+
+        function tickSesi(frekans = 800) { if (!sesAktif) return; const osc = sesContext.createOscillator(); const gain = sesContext.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(frekans, sesContext.currentTime); gain.gain.setValueAtTime(0.1, sesContext.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, sesContext.currentTime + 0.1); osc.connect(gain); gain.connect(sesContext.destination); osc.start(); osc.stop(sesContext.currentTime + 0.1); }
+        function bitisSesi() { if (!sesAktif) return; const osc = sesContext.createOscillator(); const gain = sesContext.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, sesContext.currentTime); gain.gain.setValueAtTime(0.2, sesContext.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, sesContext.currentTime + 0.5); osc.connect(gain); gain.connect(sesContext.destination); osc.start(); osc.stop(sesContext.currentTime + 0.5); }
+        function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
+
+        function tumEkranlariGizle() {
+            document.getElementById('bekleme').classList.add('gizli');
+            document.getElementById('araBekleme').classList.add('gizli');
+            document.getElementById('sonBekleme').classList.add('gizli');
+            document.getElementById('oyunAlani').classList.add('gizli');
+            document.getElementById('skorBord').classList.add('gizli');
+            document.getElementById('podyumEkrani').classList.add('gizli');
+            document.getElementById('zamanlayici').classList.add('gizli');
+            alkisSesi.pause(); alkisSesi.currentTime = 0;
+        }
+
+        socket.on('yeni_oyun_basladi', () => { tumEkranlariGizle(); document.getElementById('bekleme').classList.remove('gizli'); });
+
+        socket.on('yeni_soru', (gelenSoru) => {
+            tumEkranlariGizle();
+            document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('zamanlayici').classList.remove('gizli'); document.getElementById('zamanlayici').style.background = '#864cbf';
+            document.getElementById('soruBaslik').innerText = gelenSoru.soru; const resim = document.getElementById('soruResmi');
+            if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
+            document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a"><div class="harf-ikon">A</div> ${gelenSoru.secenekler.A}</div><div class="secenek-kart s-b"><div class="harf-ikon">B</div> ${gelenSoru.secenekler.B}</div><div class="secenek-kart s-c"><div class="harf-ikon">C</div> ${gelenSoru.secenekler.C}</div><div class="secenek-kart s-d"><div class="harf-ikon">D</div> ${gelenSoru.secenekler.D}</div>`;
+        });
+
+        socket.on('zaman_guncelle', (kalanSaniye) => { 
+            const zKutu = document.getElementById('zamanlayici'); zKutu.innerText = kalanSaniye; 
+            if (kalanSaniye > 0 && !document.getElementById('oyunAlani').classList.contains('gizli')) {
+                if (kalanSaniye <= 3) { zKutu.style.background = '#e21b3c'; tickSesi(1200); } else { tickSesi(800); }
+            }
+        });
+
+        // YENİ: Süre bittiğinde direkt skoru DEĞİL, bekleme ekranını göster
+        socket.on('sure_bitti', () => { 
+            bitisSesi(); 
+            tumEkranlariGizle(); 
+            document.getElementById('araBekleme').classList.remove('gizli'); 
+        });
+
+        // Puan tablosu sadece arkaplanda HTML olarak güncellenir
+        socket.on('puan_guncelle', (oyuncular) => {
+            const liste = document.getElementById('skorListesi'); liste.innerHTML = "";
+            oyuncular.sort((a, b) => b.puan - a.puan);
+            oyuncular.slice(0, 5).forEach((oyuncu) => { liste.innerHTML += `<li><span>👤 ${oyuncu.isim}</span> <span>${oyuncu.puan}</span></li>`; });
+        });
+
+        // YENİ: Admin butona basınca tabloyu aç
+        socket.on('skor_tablosunu_goster', () => {
+            tumEkranlariGizle(); 
+            document.getElementById('skorBord').classList.remove('gizli');
+        });
+
+        // YENİ: Son soru bitince, final bekleme ekranını göster
+        socket.on('quiz_bitti_bekle', () => {
+            tumEkranlariGizle(); 
+            document.getElementById('sonBekleme').classList.remove('gizli');
+        });
+
+        // YENİ: Admin butona basınca podyumu göster
+        socket.on('quiz_bitti_final', (oyuncular) => {
+            tumEkranlariGizle(); document.getElementById('podyumEkrani').classList.remove('gizli');
+            if(sesAktif) alkisSesi.play(); konfetiPatlat();
+            oyuncular.sort((a, b) => b.puan - a.puan);
+            const kazananlarDiv = document.getElementById('kazananlarListesi'); kazananlarDiv.innerHTML = "";
+            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style="font-size: 50px; color:#d89e00; margin-bottom:15px;">🥇 1. ${oyuncular[0].isim} (${oyuncular[0].puan} Puan)</div>`;
+            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style="font-size: 35px; color:#bdc3c7; margin-bottom:10px;">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan} Puan)</div>`;
+            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style="font-size: 25px; color:#cd7f32;">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan} Puan)</div>`;
+        });
+    </script>
+</body>
+</html>
