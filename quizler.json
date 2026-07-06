@@ -1,0 +1,65 @@
+{
+  "quiz_1": {
+    "id": "quiz_1",
+    "ad": "Örnek Teknoloji Quizi",
+    "sure": 20,
+    "puan": 100,
+    "sorular": [
+      {
+        "soru": "Kur'an-ı Kerim'deki Yusuf Suresi'nde geçen kıssaya göre, Mısır hükümdarının rüyasında gördüğü ve Hz. Yusuf'un yorumladığı, yedişer adet olan semboller aşağıdakilerden hangisidir?",
+        "gorsel": "https://image.pollinations.ai/prompt/An%20ancient%20Egyptian%20pharaoh%20sleeping%20in%20his%20palace%2C%20dream%20bubbles%20showing%20seven%20fat%20cows%20and%20seven%20lean%20cows%2C%20digital%20art%20style.?width=800&height=400&nologo=true",
+        "secenekler": {
+          "A": "Semiz ve zayıf inekler ile yeşil ve kuru başaklar",
+          "B": "Dolu ve boş ambarlar ile verimli ve kurak topraklar",
+          "C": "Gür akan ve kurumuş nehirler ile meyveli ve kuru ağaçlar",
+          "D": "Parlak ve sönük yıldızlar ile beyaz ve siyah bulutlar"
+        },
+        "dogruCevap": "A",
+        "id": 1783079148145
+      },
+      {
+        "soru": "Güneş sisteminde, güneşe en yakın ikinci gezegen olmasına rağmen kalın atmosferi nedeniyle en sıcak olan gezegen hangisidir?",
+        "gorsel": "https://image.pollinations.ai/prompt/The%20planet%20Venus%20glowing%20with%20hot%20orange%20clouds%20in%20the%20dark%20space?width=800&height=400&nologo=true",
+        "secenekler": {
+          "A": "Merkür",
+          "B": "Venüs",
+          "C": "Mars",
+          "D": "Jüpiter"
+        },
+        "dogruCevap": "B",
+        "id": 1783086820298
+      },
+      {
+        "soru": "Ünlü 'Belleğin Azmi' (Eriyen Saatler) tablosu hangi sürrealist ressama aittir?",
+        "gorsel": "https://image.pollinations.ai/prompt/Surreal%20melting%20pocket%20watches%20on%20a%20desert%20landscape%2C%20Salvador%20Dali%20style?width=800&height=400&nologo=true",
+        "secenekler": {
+          "A": "Salvador Dali",
+          "B": "Pablo Picasso",
+          "C": "René Magritte",
+          "D": "Frida Kahlo"
+        },
+        "dogruCevap": "A",
+        "id": 1783086821178
+      },
+      {
+        "soru": "Yüzölçümü bakımından dünyanın en büyük gölü olan ve aynı zamanda bir iç deniz olarak kabul edilen su kütlesi hangisidir?",
+        "gorsel": "https://image.pollinations.ai/prompt/A%20wide%20satellite%20view%20of%20the%20Caspian%20Sea%20surrounded%20by%20land%2C%20highly%20detailed?width=800&height=400&nologo=true",
+        "secenekler": {
+          "A": "Baykal Gölü",
+          "B": "Hazar Denizi",
+          "C": "Superior Gölü",
+          "D": "Victoria Gölü"
+        },
+        "dogruCevap": "B",
+        "id": 1783086822534
+      }
+    ]
+  },
+  "quiz_1783086795167": {
+    "id": "quiz_1783086795167",
+    "ad": "dwadadawd",
+    "sure": 20,
+    "puan": 100,
+    "sorular": []
+  }
+}
