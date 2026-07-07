@@ -27,7 +27,11 @@
 <body>
 
     <div class="header">
-        <h1>🛠️ Yarışma Kontrol Merkezi</h1>
+        <div>
+            <h1 style="margin:0;">🛠️ Yarışma Kontrol Merkezi</h1>
+            <a href="/logout" style="display: inline-block; margin-top: 10px; padding: 8px 15px; background: #e21b3c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">🚪 Çıkış Yap (Oturumu Kapat)</a>
+        </div>
+        
         <div class="canli-yayin-kutusu" style="min-width: 400px;">
             <h3 style="color: white; border: none; margin: 0; padding: 0;">🔴 CANLI YAYIN KONTROLLERİ</h3>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -105,9 +109,9 @@
 
         <div class="panel">
             <h2>⚙️ Sistem Ayarları</h2>
-            <p style="font-size: 13px; color: #666;">Yarışma ekranları için marka logosu yükleyin.</p>
+            <p style="font-size: 13px; color: #666;">Tüm ekranlarda sabit kalacak marka logonuzu yükleyin.</p>
             <div style="background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; text-align: center;">
-                <img id="onizlemeLogo" src="" style="max-height: 80px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto;">
+                <img id="onizlemeLogo" src="" style="max-height: 80px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 <input type="file" id="logoInput" accept="image/*" style="margin-bottom: 10px;">
                 <button class="btn-mor" onclick="logoYukle()">Logoyu Kaydet / Güncelle</button>
                 <button class="btn-kirmizi" onclick="logoSil()" style="margin-top: 5px;">Logoyu Kaldır</button>
@@ -120,7 +124,7 @@
         const socket = io();
         let tumQuizler = {}; let seciliQuizId = null; let uretilenSorular = [];
 
-        // --- YENİ: LOGO İŞLEMLERİ ---
+        // --- LOGO İŞLEMLERİ ---
         socket.on('ayarlar_guncelle', (ayarlar) => {
             const img = document.getElementById('onizlemeLogo');
             if(ayarlar.logo) { img.src = ayarlar.logo; img.style.display = 'block'; } else { img.style.display = 'none'; }
