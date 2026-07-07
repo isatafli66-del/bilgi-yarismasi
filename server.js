@@ -11,11 +11,12 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-// --- YENİ: ŞİFRE KORUMASI (Basic Auth) ---
+// --- ŞİFRE KORUMASI (Basic Auth) ---
 app.use('/admin', (req, res, next) => {
     const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
     const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
     
+    // Render Environment'tan gelen şifre veya varsayılan: 123456
     const gercekSifre = process.env.ADMIN_SIFRE || '123456'; 
 
     if (login === 'admin' && password === gercekSifre) {
@@ -29,7 +30,7 @@ app.get('/admin', (req, res) => { res.sendFile(__dirname + '/public/admin.html')
 app.get('/ekran', (req, res) => { res.sendFile(__dirname + '/public/ekran.html'); });
 
 const VERI_DOSYASI = 'quizler.json';
-const AYARLAR_DOSYASI = 'ayarlar.json'; // YENİ: Logo için ayar dosyası
+const AYARLAR_DOSYASI = 'ayarlar.json'; 
 
 function veriYukle(dosyaAd, varsayilan) {
     if (fs.existsSync(dosyaAd)) {
@@ -48,9 +49,9 @@ let oyunDuraklatildi = false;
 io.on('connection', (socket) => {
     socket.emit('verileri_guncelle', quizler);
     socket.emit('admin_oyuncular_guncelle', oyuncular);
-    socket.emit('ayarlar_guncelle', ayarlar); // YENİ: Bağlanan herkese logoyu yolla
+    socket.emit('ayarlar_guncelle', ayarlar); // Yeni bağlanan herkese logoyu gönder
 
-    // YENİ: Logo Güncelleme
+    // Logo Güncelleme Olayı
     socket.on('admin_logo_guncelle', (logoBase64) => {
         ayarlar.logo = logoBase64;
         veriKaydet(AYARLAR_DOSYASI, ayarlar);
@@ -105,52 +106,3 @@ io.on('connection', (socket) => {
     socket.on('admin_oyuncu_ad_duzenle', (data) => {
         if(oyuncular[data.id]) { oyuncular[data.id].isim = data.isim; io.emit('puan_guncelle', Object.values(oyuncular)); io.emit('admin_oyuncular_guncelle', oyuncular); }
     });
-    socket.on('admin_oyuncu_sil', (id) => {
-        if(oyuncular[id]) { delete oyuncular[id]; io.emit('puan_guncelle', Object.values(oyuncular)); io.emit('admin_oyuncular_guncelle', oyuncular); }
-    });
-
-    socket.on('quiz_baslat', (quizId) => { 
-        if(geriSayimSayaci) clearInterval(geriSayimSayaci);
-        soruAktifMi = false; oyunDuraklatildi = false;
-        aktifQuizId = quizId; aktifSoruSirasi = -1; oyuncular = {}; 
-        io.emit('yeni_oyun_basladi'); io.emit('puan_guncelle', []); io.emit('admin_oyuncular_guncelle', oyuncular);
-    });
-
-    socket.on('yeni_oyuncu', (isim) => { 
-        oyuncular[socket.id] = { isim: isim, puan: 0 }; 
-        io.emit('puan_guncelle', Object.values(oyuncular)); io.emit('admin_oyuncular_guncelle', oyuncular);
-    });
-
-    socket.on('soru_yolla', () => {
-        if (!aktifQuizId || !quizler[aktifQuizId] || quizler[aktifQuizId].sorular.length === 0) return;
-        if(geriSayimSayaci) clearInterval(geriSayimSayaci);
-        soruAktifMi = false; oyunDuraklatildi = false; 
-        aktifSoruSirasi++; const aktifQuiz = quizler[aktifQuizId];
-        if (aktifSoruSirasi >= aktifQuiz.sorular.length) { io.emit('quiz_bitti_bekle'); aktifQuizId = null; return; }
-        const siradakiSoru = aktifQuiz.sorular[aktifSoruSirasi]; soruAktifMi = true;
-        io.emit('yeni_soru', siradakiSoru);
-        let kalanSure = aktifQuiz.sure; io.emit('zaman_guncelle', kalanSure);
-        
-        geriSayimSayaci = setInterval(() => {
-            if(!oyunDuraklatildi) {
-                kalanSure--; io.emit('zaman_guncelle', kalanSure);
-                if (kalanSure <= 0) { clearInterval(geriSayimSayaci); soruAktifMi = false; io.emit('sure_bitti', siradakiSoru.dogruCevap); }
-            }
-        }, 1000);
-    });
-
-    socket.on('cevap_gonder', (secilenSecenek) => {
-        const oyuncu = oyuncular[socket.id];
-        if (oyuncu && soruAktifMi && aktifQuizId) {
-            if (secilenSecenek === quizler[aktifQuizId].sorular[aktifSoruSirasi].dogruCevap) { oyuncu.puan += quizler[aktifQuizId].puan; }
-            io.emit('puan_guncelle', Object.values(oyuncular)); io.emit('admin_oyuncular_guncelle', oyuncular);
-        }
-    });
-
-    socket.on('disconnect', () => { 
-        if (oyuncular[socket.id]) { delete oyuncular[socket.id]; io.emit('puan_guncelle', Object.values(oyuncular)); io.emit('admin_oyuncular_guncelle', oyuncular); } 
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`Sunucu mükemmel çalışıyor! Port: ${PORT}`); });
