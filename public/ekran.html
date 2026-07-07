@@ -36,7 +36,7 @@
 </head>
 <body>
 
-    <img id="ekranLogo" class="gizli" style="position: absolute; top: 20px; right: 30px; max-height: 80px; z-index: 100; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+    <img id="ekranLogo" class="gizli" style="position: absolute; top: 20px; right: 30px; max-height: 100px; z-index: 9999; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); background: white; padding: 5px;">
 
     <div id="zamanlayici" class="gizli">0</div>
     
@@ -67,7 +67,7 @@
         const sesContext = new (window.AudioContext || window.webkitAudioContext)();
         const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
 
-        // YENİ: Logo dinleyicisi
+        // --- GLOBAL LOGO YÖNETİMİ ---
         socket.on('ayarlar_guncelle', (ayarlar) => {
             const logo = document.getElementById('ekranLogo');
             if(ayarlar.logo) { logo.src = ayarlar.logo; logo.classList.remove('gizli'); } 
@@ -123,9 +123,9 @@
             if(sesAktif) alkisSesi.play(); konfetiPatlat();
             oyuncular.sort((a, b) => b.puan - a.puan);
             const kazananlarDiv = document.getElementById('kazananlarListesi'); kazananlarDiv.innerHTML = "";
-            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style="font-size: 50px; color:#d89e00; margin-bottom:15px;">🥇 1. ${oyuncular[0].isim} (${oyuncular[0].puan} Puan)</div>`;
-            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style="font-size: 35px; color:#bdc3c7; margin-bottom:10px;">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan} Puan)</div>`;
-            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style="font-size: 25px; color:#cd7f32;">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan} Puan)</div>`;
+            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style=\"font-size: 50px; color:#d89e00; margin-bottom:15px;\">🥇 1. ${oyuncular[0].isim} (${oyuncular[0].puan} Puan)</div>`;
+            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style=\"font-size: 35px; color:#bdc3c7; margin-bottom:10px;\">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan} Puan)</div>`;
+            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style=\"font-size: 25px; color:#cd7f32;\">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan} Puan)</div>`;
         });
     </script>
 </body>
