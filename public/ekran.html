@@ -36,6 +36,8 @@
 </head>
 <body>
 
+    <img id="ekranLogo" class="gizli" style="position: absolute; top: 20px; right: 30px; max-height: 80px; z-index: 100; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+
     <div id="zamanlayici" class="gizli">0</div>
     
     <div id="bekleme" class="bekleme-ekrani">Yarışma Başlamak Üzere!<br><span style="font-size: 24px;">Lütfen telefonunuzdan bağlanın...</span><br><button id="sesBtn" class="ses-btn">🔊 Ses Efektlerini Aç</button></div>
@@ -65,6 +67,13 @@
         const sesContext = new (window.AudioContext || window.webkitAudioContext)();
         const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
 
+        // YENİ: Logo dinleyicisi
+        socket.on('ayarlar_guncelle', (ayarlar) => {
+            const logo = document.getElementById('ekranLogo');
+            if(ayarlar.logo) { logo.src = ayarlar.logo; logo.classList.remove('gizli'); } 
+            else { logo.classList.add('gizli'); }
+        });
+
         document.getElementById('sesBtn').addEventListener('click', () => {
             sesAktif = true; if(sesContext.state === 'suspended') sesContext.resume();
             alkisSesi.volume = 0; alkisSesi.play().then(() => { alkisSesi.pause(); alkisSesi.currentTime = 0; alkisSesi.volume = 1; }).catch(e => console.log(e));
@@ -76,13 +85,8 @@
         function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
 
         function tumEkranlariGizle() {
-            document.getElementById('bekleme').classList.add('gizli');
-            document.getElementById('araBekleme').classList.add('gizli');
-            document.getElementById('sonBekleme').classList.add('gizli');
-            document.getElementById('oyunAlani').classList.add('gizli');
-            document.getElementById('skorBord').classList.add('gizli');
-            document.getElementById('podyumEkrani').classList.add('gizli');
-            document.getElementById('zamanlayici').classList.add('gizli');
+            document.getElementById('bekleme').classList.add('gizli'); document.getElementById('araBekleme').classList.add('gizli'); document.getElementById('sonBekleme').classList.add('gizli');
+            document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('skorBord').classList.add('gizli'); document.getElementById('podyumEkrani').classList.add('gizli'); document.getElementById('zamanlayici').classList.add('gizli');
             alkisSesi.pause(); alkisSesi.currentTime = 0;
         }
 
@@ -103,33 +107,17 @@
             }
         });
 
-        // YENİ: Süre bittiğinde direkt skoru DEĞİL, bekleme ekranını göster
-        socket.on('sure_bitti', () => { 
-            bitisSesi(); 
-            tumEkranlariGizle(); 
-            document.getElementById('araBekleme').classList.remove('gizli'); 
-        });
-
-        // Puan tablosu sadece arkaplanda HTML olarak güncellenir
+        socket.on('sure_bitti', () => { bitisSesi(); tumEkranlariGizle(); document.getElementById('araBekleme').classList.remove('gizli'); });
+        
         socket.on('puan_guncelle', (oyuncular) => {
             const liste = document.getElementById('skorListesi'); liste.innerHTML = "";
             oyuncular.sort((a, b) => b.puan - a.puan);
             oyuncular.slice(0, 5).forEach((oyuncu) => { liste.innerHTML += `<li><span>👤 ${oyuncu.isim}</span> <span>${oyuncu.puan}</span></li>`; });
         });
 
-        // YENİ: Admin butona basınca tabloyu aç
-        socket.on('skor_tablosunu_goster', () => {
-            tumEkranlariGizle(); 
-            document.getElementById('skorBord').classList.remove('gizli');
-        });
+        socket.on('skor_tablosunu_goster', () => { tumEkranlariGizle(); document.getElementById('skorBord').classList.remove('gizli'); });
+        socket.on('quiz_bitti_bekle', () => { tumEkranlariGizle(); document.getElementById('sonBekleme').classList.remove('gizli'); });
 
-        // YENİ: Son soru bitince, final bekleme ekranını göster
-        socket.on('quiz_bitti_bekle', () => {
-            tumEkranlariGizle(); 
-            document.getElementById('sonBekleme').classList.remove('gizli');
-        });
-
-        // YENİ: Admin butona basınca podyumu göster
         socket.on('quiz_bitti_final', (oyuncular) => {
             tumEkranlariGizle(); document.getElementById('podyumEkrani').classList.remove('gizli');
             if(sesAktif) alkisSesi.play(); konfetiPatlat();
