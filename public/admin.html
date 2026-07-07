@@ -2,25 +2,21 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Yönetici Paneli - AI Destekli</title>
+    <title>Yönetici Paneli</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .header { background: #46178f; color: white; padding: 15px 30px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .canli-yayin-kutusu { background: #2ecc71; padding: 15px; border-radius: 8px; border: 3px solid #27ae60; text-align: center; display: flex; flex-direction: column; gap: 10px; }
-        
         .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .panel { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-height: 85vh; overflow-y: auto; }
         h2, h3 { margin-top: 0; color: #46178f; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        
         input, select { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         button { background: #1368ce; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 5px; }
         button:hover { filter: brightness(0.9); }
         .btn-yesil { background: #26890c; } .btn-kirmizi { background: #e21b3c; } .btn-sari { background: #d89e00; } .btn-mor { background: #8e44ad; }
         .btn-kucuk { width: auto; padding: 5px 8px; font-size: 11px; margin: 0 1px; }
-        
         .liste-eleman { background: #f9f9f9; border-left: 5px solid #1368ce; padding: 15px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
         .secili { border-left-color: #26890c; background: #eafaf1; }
-        
         .ai-kutu { background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); border: 2px solid #8e44ad; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .ai-soru-karti { background: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #8e44ad; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; display: none; }
@@ -44,11 +40,11 @@
     </div>
 
     <div class="container">
+        <!-- 1. PANEL -->
         <div class="panel">
             <h2>1. Quiz Paketleri</h2>
             <div id="quizListesi"></div>
             <button onclick="yeniQuizModu()" style="margin-top: 15px;">+ Yeni Quiz Paketi Oluştur</button>
-
             <div id="quizFormAlani" style="display: none; margin-top: 15px; padding: 15px; background: #fdfdfd; border: 1px solid #ddd; border-radius: 8px;">
                 <h3 id="quizFormBaslik">Quiz Ayarları</h3>
                 <input type="hidden" id="q_id">
@@ -62,12 +58,11 @@
             </div>
         </div>
 
+        <!-- 2. PANEL -->
         <div class="panel">
             <h2>🤖 Yapay Zeka Asistanı</h2>
-            <p style="font-size: 13px; color: #666;">Seçili quize otomatik soru üretip ekleyin.</p>
             <div class="ai-kutu">
-                <label>Konu Başlığı:</label>
-                <input type="text" id="aiKonu" placeholder="Örn: SQL Server Veritabanı Sistemleri">
+                <label>Konu Başlığı:</label><input type="text" id="aiKonu" placeholder="Örn: SQL Server Veritabanı Sistemleri">
                 <div class="form-row">
                     <div><label>Zorluk:</label><select id="aiZorluk"><option value="Kolay">Kolay</option><option value="Orta" selected>Orta</option><option value="Zor">Zor</option></select></div>
                     <div><label>Soru Sayısı:</label><input type="number" id="aiSayi" value="3" min="1" max="10"></div>
@@ -79,6 +74,7 @@
             <div id="aiUretilenSorularAlani"></div>
         </div>
 
+        <!-- 3. PANEL -->
         <div class="panel">
             <h2>3. Quiz İçeriği <span id="seciliQuizAdi" style="font-size: 14px; color: #777;"></span></h2>
             <div id="soruListesiVeIslemler" style="display: none;">
@@ -101,108 +97,66 @@
             </div>
         </div>
 
+        <!-- 4. PANEL -->
         <div class="panel">
             <h2>👥 Oyuncu Yönetimi</h2>
-            <p style="font-size: 13px; color: #666;">Manuel ekleyin, adını düzeltin veya silin.</p>
-            
             <div style="display: flex; gap: 5px; margin-bottom: 15px; background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 8px;">
                 <input type="text" id="yeniOyuncuAd" placeholder="Yeni oyuncu adı" style="margin:0;">
                 <button class="btn-yesil" onclick="manuelOyuncuEkle()" style="width: 80px; margin:0;">Ekle</button>
             </div>
-            
-            <div id="canliOyuncularListesi" style="max-height: 50vh; overflow-y: auto;"></div>
+            <div id="canliOyuncularListesi" style="max-height: 40vh; overflow-y: auto;"></div>
+        </div>
+
+        <!-- YENİ 5. PANEL: Sistem Ayarları -->
+        <div class="panel">
+            <h2>⚙️ Sistem Ayarları</h2>
+            <p style="font-size: 13px; color: #666;">Yarışma ekranları için marka logosu yükleyin.</p>
+            <div style="background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; text-align: center;">
+                <img id="onizlemeLogo" src="" style="max-height: 80px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto;">
+                <input type="file" id="logoInput" accept="image/*" style="margin-bottom: 10px;">
+                <button class="btn-mor" onclick="logoYukle()">Logoyu Kaydet / Güncelle</button>
+                <button class="btn-kirmizi" onclick="logoSil()" style="margin-top: 5px;">Logoyu Kaldır</button>
+            </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let tumQuizler = {};
-        let seciliQuizId = null;
-        let uretilenSorular = [];
+        let tumQuizler = {}; let seciliQuizId = null; let uretilenSorular = [];
+
+        // --- YENİ: LOGO İŞLEMLERİ ---
+        socket.on('ayarlar_guncelle', (ayarlar) => {
+            const img = document.getElementById('onizlemeLogo');
+            if(ayarlar.logo) { img.src = ayarlar.logo; img.style.display = 'block'; } else { img.style.display = 'none'; }
+        });
+        function logoYukle() {
+            const file = document.getElementById('logoInput').files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) { socket.emit('admin_logo_guncelle', e.target.result); };
+                reader.readAsDataURL(file);
+            } else { alert("Lütfen bir resim seçin."); }
+        }
+        function logoSil() { socket.emit('admin_logo_guncelle', null); document.getElementById('logoInput').value = ""; }
 
         // --- ADMİN CANLI YAYIN KONTROLLERİ ---
         let sureDuraklatildi = false;
-
-        function sureDurdurDevam() {
-            sureDuraklatildi = !sureDuraklatildi;
-            socket.emit('sure_durdur_devam', sureDuraklatildi);
-            const btn = document.getElementById('btnSureDurdur');
-            if(sureDuraklatildi) { btn.className = "btn-yesil"; btn.innerText = "▶️ Süreyi Devam Ettir"; } 
-            else { btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur"; }
-        }
-
-        document.getElementById('btnSiradakiSoru').addEventListener('click', () => { 
-            socket.emit('soru_yolla'); 
-            sureDuraklatildi = false;
-            const btn = document.getElementById('btnSureDurdur');
-            btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur";
-        });
-
+        function sureDurdurDevam() { sureDuraklatildi = !sureDuraklatildi; socket.emit('sure_durdur_devam', sureDuraklatildi); const btn = document.getElementById('btnSureDurdur'); if(sureDuraklatildi) { btn.className = "btn-yesil"; btn.innerText = "▶️ Süreyi Devam Ettir"; } else { btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur"; } }
+        document.getElementById('btnSiradakiSoru').addEventListener('click', () => { socket.emit('soru_yolla'); sureDuraklatildi = false; const btn = document.getElementById('btnSureDurdur'); btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur"; });
         function adminSkorGoster() { socket.emit('admin_skor_goster'); }
-        function adminPodyumGoster() { 
-            if(confirm("Yarışmayı tamamen bitirip podyumu göstermek istiyor musunuz?")) { socket.emit('admin_podyum_goster'); } 
-        }
+        function adminPodyumGoster() { if(confirm("Yarışmayı tamamen bitirip podyumu göstermek istiyor musunuz?")) { socket.emit('admin_podyum_goster'); } }
 
         // --- OYUNCU YÖNETİMİ ---
-        function manuelOyuncuEkle() {
-            const isim = document.getElementById('yeniOyuncuAd').value.trim();
-            if(isim) { socket.emit('admin_oyuncu_ekle', isim); document.getElementById('yeniOyuncuAd').value = ""; }
-        }
-        function oyuncuAdDegistir(id, eskiIsim) {
-            const yeniIsim = prompt(`Oyuncunun yeni adını girin:`, eskiIsim);
-            if(yeniIsim && yeniIsim.trim() !== "") { socket.emit('admin_oyuncu_ad_duzenle', { id: id, isim: yeniIsim.trim() }); }
-        }
-        function oyuncuPuanDegistir(id, eskiPuan, isim) {
-            const yeniPuan = prompt(`${isim} isimli oyuncunun yeni puanı:`, eskiPuan);
-            if(yeniPuan !== null && !isNaN(yeniPuan)) { socket.emit('admin_puan_duzenle', { id: id, puan: yeniPuan }); }
-        }
-        function oyuncuSil(id, isim) {
-            if(confirm(`${isim} isimli oyuncuyu oyundan silmek istediğinize emin misiniz?`)) { socket.emit('admin_oyuncu_sil', id); }
-        }
-
-        socket.on('admin_oyuncular_guncelle', (oyuncularDict) => {
-            const liste = document.getElementById('canliOyuncularListesi');
-            liste.innerHTML = "";
-            const keys = Object.keys(oyuncularDict);
-            if(keys.length === 0) { liste.innerHTML = '<p style="color: #aaa; text-align: center;">Bağlanan oyuncu yok.</p>'; return; }
-
-            keys.forEach(id => {
-                const o = oyuncularDict[id];
-                liste.innerHTML += `
-                    <div class="liste-eleman" style="border-left-color: #8e44ad; padding: 10px; display:block;">
-                        <div style="margin-bottom:8px;">
-                            <strong>${o.isim}</strong> - <span style="color: #26890c; font-weight: bold;">${o.puan} Puan</span>
-                        </div>
-                        <div style="display:flex;">
-                            <button class="btn-sari btn-kucuk" onclick="oyuncuAdDegistir('${id}', '${o.isim}')">Ad Düzenle</button>
-                            <button class="btn-sari btn-kucuk" onclick="oyuncuPuanDegistir('${id}', ${o.puan}, '${o.isim}')">Puan</button>
-                            <button class="btn-kirmizi btn-kucuk" onclick="oyuncuSil('${id}', '${o.isim}')">Sil</button>
-                        </div>
-                    </div>
-                `;
-            });
-        });
+        function manuelOyuncuEkle() { const isim = document.getElementById('yeniOyuncuAd').value.trim(); if(isim) { socket.emit('admin_oyuncu_ekle', isim); document.getElementById('yeniOyuncuAd').value = ""; } }
+        function oyuncuAdDegistir(id, eskiIsim) { const yeniIsim = prompt(`Oyuncunun yeni adını girin:`, eskiIsim); if(yeniIsim && yeniIsim.trim() !== "") { socket.emit('admin_oyuncu_ad_duzenle', { id: id, isim: yeniIsim.trim() }); } }
+        function oyuncuPuanDegistir(id, eskiPuan, isim) { const yeniPuan = prompt(`${isim} isimli oyuncunun yeni puanı:`, eskiPuan); if(yeniPuan !== null && !isNaN(yeniPuan)) { socket.emit('admin_puan_duzenle', { id: id, puan: yeniPuan }); } }
+        function oyuncuSil(id, isim) { if(confirm(`${isim} isimli oyuncuyu oyundan silmek istediğinize emin misiniz?`)) { socket.emit('admin_oyuncu_sil', id); } }
+        socket.on('admin_oyuncular_guncelle', (oyuncularDict) => { const liste = document.getElementById('canliOyuncularListesi'); liste.innerHTML = ""; const keys = Object.keys(oyuncularDict); if(keys.length === 0) { liste.innerHTML = '<p style="color: #aaa; text-align: center;">Bağlanan oyuncu yok.</p>'; return; } keys.forEach(id => { const o = oyuncularDict[id]; liste.innerHTML += `<div class="liste-eleman" style="border-left-color: #8e44ad; padding: 10px; display:block;"><div style="margin-bottom:8px;"><strong>${o.isim}</strong> - <span style="color: #26890c; font-weight: bold;">${o.puan} Puan</span></div><div style="display:flex;"><button class="btn-sari btn-kucuk" onclick="oyuncuAdDegistir('${id}', '${o.isim}')">Ad Düzenle</button><button class="btn-sari btn-kucuk" onclick="oyuncuPuanDegistir('${id}', ${o.puan}, '${o.isim}')">Puan</button><button class="btn-kirmizi btn-kucuk" onclick="oyuncuSil('${id}', '${o.isim}')">Sil</button></div></div>`; }); });
         
-        // --- QUİZ VE SORU STANDART KODLARI ---
-        socket.on('verileri_guncelle', (data) => {
-            tumQuizler = data; quizListesiniCiz();
-            if(seciliQuizId && tumQuizler[seciliQuizId]) {
-                document.getElementById('seciliQuizAdi').innerText = "- " + tumQuizler[seciliQuizId].ad;
-                document.getElementById('soruListesiVeIslemler').style.display = 'block'; soruListesiniCiz(seciliQuizId);
-            } else { document.getElementById('soruListesiVeIslemler').style.display = 'none'; }
-        });
-        function quizListesiniCiz() {
-            const liste = document.getElementById('quizListesi'); liste.innerHTML = "";
-            Object.values(tumQuizler).forEach(q => {
-                liste.innerHTML += `
-                    <div class="liste-eleman ${seciliQuizId === q.id ? 'secili' : ''}">
-                        <div onclick="quizSec('${q.id}')" style="flex:1; cursor:pointer;"><strong>${q.ad}</strong><br><small>${q.sorular.length} Soru | ${q.sure} sn | ${q.puan} Puan</small></div>
-                        <div><button onclick="quizDuzenle('${q.id}')" class="btn-sari btn-kucuk">Düzenle</button><button onclick="quizSil('${q.id}')" class="btn-kirmizi btn-kucuk">Sil</button></div>
-                    </div>
-                `;
-            });
-        }
+        // --- QUİZ VE SORU KODLARI ---
+        socket.on('verileri_guncelle', (data) => { tumQuizler = data; quizListesiniCiz(); if(seciliQuizId && tumQuizler[seciliQuizId]) { document.getElementById('seciliQuizAdi').innerText = "- " + tumQuizler[seciliQuizId].ad; document.getElementById('soruListesiVeIslemler').style.display = 'block'; soruListesiniCiz(seciliQuizId); } else { document.getElementById('soruListesiVeIslemler').style.display = 'none'; } });
+        function quizListesiniCiz() { const liste = document.getElementById('quizListesi'); liste.innerHTML = ""; Object.values(tumQuizler).forEach(q => { liste.innerHTML += `<div class="liste-eleman ${seciliQuizId === q.id ? 'secili' : ''}"><div onclick="quizSec('${q.id}')" style="flex:1; cursor:pointer;"><strong>${q.ad}</strong><br><small>${q.sorular.length} Soru | ${q.sure} sn | ${q.puan} Puan</small></div><div><button onclick="quizDuzenle('${q.id}')" class="btn-sari btn-kucuk">Düzenle</button><button onclick="quizSil('${q.id}')" class="btn-kirmizi btn-kucuk">Sil</button></div></div>`; }); }
         function quizSec(id) { seciliQuizId = id; quizListesiniCiz(); document.getElementById('seciliQuizAdi').innerText = "- " + tumQuizler[id].ad; document.getElementById('soruListesiVeIslemler').style.display = 'block'; soruListesiniCiz(id); }
         function yeniQuizModu() { document.getElementById('quizFormAlani').style.display = 'block'; document.getElementById('quizFormBaslik').innerText = "Yeni Quiz"; document.getElementById('q_id').value = ""; document.getElementById('q_ad').value = ""; document.getElementById('q_sure').value = 20; document.getElementById('q_puan').value = 100; }
         function quizDuzenle(id) { const q = tumQuizler[id]; document.getElementById('quizFormAlani').style.display = 'block'; document.getElementById('quizFormBaslik').innerText = "Quizi Düzenle"; document.getElementById('q_id').value = q.id; document.getElementById('q_ad').value = q.ad; document.getElementById('q_sure').value = q.sure; document.getElementById('q_puan').value = q.puan; }
