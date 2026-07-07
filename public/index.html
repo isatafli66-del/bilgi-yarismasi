@@ -29,6 +29,8 @@
 <body>
 
     <div id="girisAlani">
+        <img id="mobilLogoGiris" class="gizli" src="" style="max-height: 80px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+        
         <div class="logo">Bilgi Yarışması</div>
         <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
         <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
@@ -52,6 +54,13 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        
+        // YENİ: Logo Dinleyicisi
+        socket.on('ayarlar_guncelle', (ayarlar) => {
+            const logoGiris = document.getElementById('mobilLogoGiris');
+            if(ayarlar.logo) { logoGiris.src = ayarlar.logo; logoGiris.classList.remove('gizli'); } 
+            else { logoGiris.classList.add('gizli'); }
+        });
         
         document.getElementById('katilBtn').addEventListener('click', () => {
             const isim = document.getElementById('isimInput').value.trim();
@@ -80,8 +89,6 @@
         });
 
         socket.on('zaman_guncelle', (kalanSaniye) => { document.getElementById('sureMetni').innerText = kalanSaniye; });
-        
-        // YENİ: Telefondaki oyunculara giden dinamik uyarılar
         socket.on('sure_bitti', () => { gosterMesaj("Süre Doldu! Diğer soruyu bekleyin... ⏳"); });
         socket.on('skor_tablosunu_goster', () => { gosterMesaj("Puan durumu ekranda! 👀"); });
         socket.on('quiz_bitti_bekle', () => { gosterMesaj("Yarışma tamamlandı! Sonuçlar ekrana yansıtılacak... 🎊"); });
