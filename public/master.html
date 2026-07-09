@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang=\"tr\">
+<head>
+    <meta charset=\"UTF-8\">
+    <title>Süper Admin | Tazzy Cloud</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; margin: 0; padding: 30px; color: #fff; }
+        .header { background: #16213e; padding: 20px; border-radius: 10px; text-align: center; border-bottom: 3px solid #e94560; margin-bottom: 30px; }
+        .header h1 { margin: 0; color: #e94560; font-size: 32px; letter-spacing: 2px; }
+        
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .panel { background: #0f3460; padding: 25px; border-radius: 10px; flex: 1; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        
+        h2 { border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-top: 0; color: #43dde6; }
+        
+        input { width: 100%; padding: 12px; margin: 8px 0 20px 0; border: none; border-radius: 6px; box-sizing: border-box; background: #1a1a2e; color: white; font-size: 16px; border-left: 4px solid #e94560; }
+        input:focus { outline: none; border-left-color: #43dde6; }
+        
+        button { background: #e94560; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.3s; }
+        button:hover { background: #ff5270; transform: translateY(-2px); }
+        .btn-kirmizi { background: #c0392b; }
+        
+        .kurum-kart { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #43dde6; }
+        .kurum-kart.pasif { border-left-color: #e21b3c; opacity: 0.7; }
+        .kurum-bilgi strong { font-size: 20px; color: #fff; }
+        .kurum-bilgi span { display: block; color: #aaa; margin-top: 5px; font-size: 14px; }
+        .aksiyon-btnler { display: flex; gap: 10px; }
+        .btn-kucuk { padding: 8px 12px; font-size: 12px; width: auto; }
+    </style>
+</head>
+<body>
+
+    <div class=\"header\">
+        <h1>⚡ TAZZY CLOUD MASTER ⚡</h1>
+        <p style=\"color: #aaa; margin: 5px 0 0 0;\">Multi-Tenant Lisans ve Müşteri Yönetim Merkezi</p>
+    </div>
+
+    <div class=\"container\">
+        <div class=\"panel\" style=\"flex: 0.6;\">
+            <h2>➕ Yeni Kurum Lisansı Aç</h2>
+            <label>Kurum Kodu (Kullanıcı Adı):</label>
+            <input type=\"text\" id=\"k_kodu\" placeholder=\"Örn: CAFE-BOSPHORUS\">
+            
+            <label>Kurum Yönetici Şifresi:</label>
+            <input type=\"text\" id=\"k_sifre\" placeholder=\"Örn: cafe1234\">
+            
+            <label>Lisans Bitiş Tarihi:</label>
+            <input type=\"date\" id=\"k_bitis\">
+            
+            <label style=\"display:flex; align-items:center; gap:10px; margin-bottom:20px; cursor:pointer;\">
+                <input type=\"checkbox\" id=\"k_aktif\" checked style=\"width:20px; height:20px; margin:0;\">
+                Kurum Şu An Aktif Mi?
+            </label>
+
+            <button onclick=\"kurumKaydet()\">Lisansı Kaydet / Güncelle</button>
+        </div>
+
+        <div class=\"panel\">
+            <h2>🏢 Aktif / Pasif Müşteriler</h2>
+            <div id=\"kurumlarListesi\"></div>
+        </div>
+    </div>
+
+    <div style=\"text-align: center; margin-top: 50px;\">
+        <img src=\"Tazzy Beyaz.png\" alt=\"Tazzy\" style=\"height: 40px; opacity: 0.5;\">
+    </div>
+
+    <script src=\"/socket.io/socket.io.js\"></script>
+    <script>
+        const socket = io();
+        
+        // Sayfa açıldığında verileri iste
+        socket.emit('master_veri_istek');
+
+        socket.on('master_veriler', (kurumlar) => {
+            const liste = document.getElementById('kurumlarListesi');
+            liste.innerHTML = \"\";
+            
+            const bugun = new Date();
+
+            Object.keys(kurumlar).forEach(kodu => {
+                const k = kurumlar[kodu];
+                const bitisTarihi = new Date(k.bitis);
+                const lisansBittiMi = bugun > bitisTarihi;
+                
+                let durumMetni = \"\";
+                if(!k.aktif) durumMetni = \"<span style='color:#e21b3c;'>Durum: Askıya Alınmış</span>\";
+                else if(lisansBittiMi) durumMetni = \"<span style='color:#e21b3c;'>Durum: Lisans Süresi Dolmuş!</span>\";
+                else durumMetni = \"<span style='color:#2ecc71;'>Durum: Aktif & Yayında</span>\";
+
+                liste.innerHTML += `
+                    <div class=\"kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}\">
+                        <div class=\"kurum-bilgi\">
+                            <strong>${kodu}</strong>
+                            <span>🔑 Şifre: ${k.sifre}</span>
+                            <span>📅 Bitiş: ${k.bitis}</span>
+                            ${durumMetni}
+                        </div>
+                        <div class=\"aksiyon-btnler\">
+                            <button class=\"btn-kucuk\" style=\"background:#d89e00;\" onclick=\"duzenle('${kodu}', '${k.sifre}', '${k.bitis}', ${k.aktif})\">Düzenle</button>
+                            <button class=\"btn-kucuk btn-kirmizi\" onclick=\"kurumSil('${kodu}')\">Sil</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        function kurumKaydet() {
+            const kodu = document.getElementById('k_kodu').value.trim();
+            const sifre = document.getElementById('k_sifre').value.trim();
+            const bitis = document.getElementById('k_bitis').value;
+            const aktif = document.getElementById('k_aktif').checked;
+
+            if(!kodu || !sifre || !bitis) {
+                alert(\"Lütfen kod, şifre ve bitiş tarihini boş bırakmayın.\");
+                return;
+            }
+
+            socket.emit('master_kurum_ekle_guncelle', { kodu, sifre, bitis, aktif });
+            
+            // Formu temizle
+            document.getElementById('k_kodu').value = \"\";
+            document.getElementById('k_sifre').value = \"\";
+            document.getElementById('k_bitis').value = \"\";
+        }
+
+        function duzenle(kodu, sifre, bitis, aktif) {
+            document.getElementById('k_kodu').value = kodu;
+            document.getElementById('k_sifre').value = sifre;
+            document.getElementById('k_bitis').value = bitis;
+            document.getElementById('k_aktif').checked = aktif;
+        }
+
+        function kurumSil(kodu) {
+            if(confirm(`DİKKAT! ${kodu} kurumunun sisteme girişini tamamen silmek istiyor musunuz?`)) {
+                socket.emit('master_kurum_sil', kodu);
+            }
+        }
+    </script>
+</body>
+</html>
