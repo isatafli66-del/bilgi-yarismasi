@@ -6,7 +6,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.110.2",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
   }
