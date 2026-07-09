@@ -31,7 +31,7 @@
         <div style="display: flex; align-items: center; gap: 15px;">
             <img id="adminHeaderLogo" src="" style="height: 50px; border-radius: 5px; display: none; background: white; padding: 3px;">
             <div>
-                <h1 style="margin:0;">🛠️ Yönetim <span id="kurumIsmi" style="font-size: 18px; color: #d89e00;"></span></h1>
+                <h1 style="margin:0;">🛠️ Yönetim <span id="kurumIsmi" style="font-size: 18px; color: #d89e00;">Yükleniyor...</span></h1>
                 <button onclick="anaEkraniAc()" style="margin-top: 10px; padding: 8px 15px; background: #f1c40f; color: #333; width: auto;">🖥️ Ana Ekranı Aç</button>
                 <a href="/logout" style="display: inline-block; margin-top: 10px; margin-left: 10px; padding: 8px 15px; background: #e21b3c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">🚪 Çıkış</a>
             </div>
@@ -50,7 +50,6 @@
     </div>
 
     <div class="container">
-        <!-- 1. PANEL -->
         <div class="panel">
             <h2>1. Quiz Paketleri</h2>
             <div id="quizListesi"></div>
@@ -68,7 +67,6 @@
             </div>
         </div>
 
-        <!-- 2. PANEL -->
         <div class="panel">
             <h2>🤖 Yapay Zeka Asistanı</h2>
             <div class="ai-kutu">
@@ -84,7 +82,6 @@
             <div id="aiUretilenSorularAlani"></div>
         </div>
 
-        <!-- 3. PANEL -->
         <div class="panel">
             <h2>3. Quiz İçeriği <span id="seciliQuizAdi" style="font-size: 14px; color: #777;"></span></h2>
             <div id="soruListesiVeIslemler" style="display: none;">
@@ -107,7 +104,6 @@
             </div>
         </div>
 
-        <!-- 4. PANEL -->
         <div class="panel">
             <h2>👥 Oyuncu Yönetimi</h2>
             <div style="display: flex; gap: 5px; margin-bottom: 15px; background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 8px;">
@@ -118,7 +114,6 @@
         </div>
     </div>
 
-    <!-- TAZZY İMZA ALANI -->
     <div style="text-align: center; margin-top: 30px; padding-bottom: 20px; color: #777; font-size: 13px; display: flex; justify-content: center; align-items: center; gap: 8px;">
         <span style="letter-spacing: 1px;">DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 25px;">
@@ -126,14 +121,24 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        function getCookie(name) { const value = `; ${document.cookie}`; const parts = value.split(`; ${name}=`); if (parts.length === 2) return parts.pop().split(';').shift(); return null; }
-        const KURUM_KODU = getCookie('kurumKodu');
-        document.getElementById('kurumIsmi').innerText = `(${KURUM_KODU})`;
-
-        function anaEkraniAc() { window.open('/ekran?kurum=' + KURUM_KODU, '_blank'); }
-
         const socket = io();
-        socket.emit('admin_giris', KURUM_KODU);
+        let KURUM_KODU = null;
+
+        // YENİ: KOPMALARA KARŞI KESİN ÇÖZÜM (KİMLİK DOĞRULAMA)
+        fetch('/api/me').then(r => r.json()).then(data => {
+            if(data.kurumKodu) {
+                KURUM_KODU = data.kurumKodu;
+                document.getElementById('kurumIsmi').innerText = `(${KURUM_KODU})`;
+                if(socket.connected) socket.emit('admin_giris', KURUM_KODU);
+            }
+        });
+
+        // İnternet anlık gidip gelirse hafızayı hemen tazele!
+        socket.on('connect', () => {
+            if(KURUM_KODU) socket.emit('admin_giris', KURUM_KODU);
+        });
+
+        function anaEkraniAc() { if(KURUM_KODU) window.open('/ekran?kurum=' + KURUM_KODU, '_blank'); }
 
         let tumQuizler = {}; let seciliQuizId = null; let uretilenSorular = [];
 
@@ -148,21 +153,18 @@
             if(ayarlar.logo) { img.src = ayarlar.logo; img.style.display = 'block'; } else { img.style.display = 'none'; }
         });
 
-        // --- ADMİN CANLI YAYIN KONTROLLERİ ---
         let sureDuraklatildi = false;
         function sureDurdurDevam() { sureDuraklatildi = !sureDuraklatildi; socket.emit('sure_durdur_devam', sureDuraklatildi); const btn = document.getElementById('btnSureDurdur'); if(sureDuraklatildi) { btn.className = "btn-yesil"; btn.innerText = "▶️ Süreyi Devam Ettir"; } else { btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur"; } }
         document.getElementById('btnSiradakiSoru').addEventListener('click', () => { socket.emit('soru_yolla'); sureDuraklatildi = false; const btn = document.getElementById('btnSureDurdur'); btn.className = "btn-kirmizi"; btn.innerText = "⏸️ Süreyi Durdur"; });
         function adminSkorGoster() { socket.emit('admin_skor_goster'); }
         function adminPodyumGoster() { if(confirm("Yarışmayı tamamen bitirip podyumu göstermek istiyor musunuz?")) { socket.emit('admin_podyum_goster'); } }
 
-        // --- OYUNCU YÖNETİMİ ---
         function manuelOyuncuEkle() { const isim = document.getElementById('yeniOyuncuAd').value.trim(); if(isim) { socket.emit('admin_oyuncu_ekle', isim); document.getElementById('yeniOyuncuAd').value = ""; } }
         function oyuncuAdDegistir(id, eskiIsim) { const yeniIsim = prompt(`Oyuncunun yeni adını girin:`, eskiIsim); if(yeniIsim && yeniIsim.trim() !== "") { socket.emit('admin_oyuncu_ad_duzenle', { id: id, isim: yeniIsim.trim() }); } }
         function oyuncuPuanDegistir(id, eskiPuan, isim) { const yeniPuan = prompt(`${isim} isimli oyuncunun yeni puanı:`, eskiPuan); if(yeniPuan !== null && !isNaN(yeniPuan)) { socket.emit('admin_puan_duzenle', { id: id, puan: yeniPuan }); } }
         function oyuncuSil(id, isim) { if(confirm(`${isim} isimli oyuncuyu oyundan silmek istediğinize emin misiniz?`)) { socket.emit('admin_oyuncu_sil', id); } }
         socket.on('admin_oyuncular_guncelle', (oyuncularDict) => { const liste = document.getElementById('canliOyuncularListesi'); liste.innerHTML = ""; const keys = Object.keys(oyuncularDict); if(keys.length === 0) { liste.innerHTML = '<p style="color: #aaa; text-align: center;">Bağlanan oyuncu yok.</p>'; return; } keys.forEach(id => { const o = oyuncularDict[id]; liste.innerHTML += `<div class="liste-eleman" style="border-left-color: #8e44ad; padding: 10px; display:block;"><div style="margin-bottom:8px;"><strong>${o.isim}</strong> - <span style="color: #26890c; font-weight: bold;">${o.puan} Puan</span></div><div style="display:flex;"><button class="btn-sari btn-kucuk" onclick="oyuncuAdDegistir('${id}', '${o.isim}')">Ad Düzenle</button><button class="btn-sari btn-kucuk" onclick="oyuncuPuanDegistir('${id}', ${o.puan}, '${o.isim}')">Puan</button><button class="btn-kirmizi btn-kucuk" onclick="oyuncuSil('${id}', '${o.isim}')">Sil</button></div></div>`; }); });
         
-        // --- QUİZ VE SORU KODLARI ---
         socket.on('verileri_guncelle', (data) => { tumQuizler = data; quizListesiniCiz(); if(seciliQuizId && tumQuizler[seciliQuizId]) { document.getElementById('seciliQuizAdi').innerText = "- " + tumQuizler[seciliQuizId].ad; document.getElementById('soruListesiVeIslemler').style.display = 'block'; soruListesiniCiz(seciliQuizId); } else { document.getElementById('soruListesiVeIslemler').style.display = 'none'; } });
         function quizListesiniCiz() { const liste = document.getElementById('quizListesi'); liste.innerHTML = ""; Object.values(tumQuizler).forEach(q => { liste.innerHTML += `<div class="liste-eleman ${seciliQuizId === q.id ? 'secili' : ''}"><div onclick="quizSec('${q.id}')" style="flex:1; cursor:pointer;"><strong>${q.ad}</strong><br><small>${q.sorular.length} Soru | ${q.sure} sn | ${q.puan} Puan</small></div><div><button onclick="quizDuzenle('${q.id}')" class="btn-sari btn-kucuk">Düzenle</button><button onclick="quizSil('${q.id}')" class="btn-kirmizi btn-kucuk">Sil</button></div></div>`; }); }
         function quizSec(id) { seciliQuizId = id; quizListesiniCiz(); document.getElementById('seciliQuizAdi').innerText = "- " + tumQuizler[id].ad; document.getElementById('soruListesiVeIslemler').style.display = 'block'; soruListesiniCiz(id); }
@@ -176,7 +178,15 @@
         
         function aiSoruUret() { const konu = document.getElementById('aiKonu').value; if(!konu) { alert("Konu yazın!"); return; } document.getElementById('aiUretBtn').style.display = 'none'; document.getElementById('aiYukleniyor').style.display = 'block'; document.getElementById('aiDurum').innerText = "Sorular düşünülüyor..."; document.getElementById('aiUretilenSorularAlani').innerHTML = ""; socket.emit('ai_soru_uret', { konu: konu, zorluk: document.getElementById('aiZorluk').value, sayi: document.getElementById('aiSayi').value }); }
         socket.on('ai_soru_sonuc', (sorular) => { document.getElementById('aiUretBtn').style.display = 'block'; document.getElementById('aiYukleniyor').style.display = 'none'; document.getElementById('aiDurum').innerText = "Hazır!"; uretilenSorular = sorular; const alan = document.getElementById('aiUretilenSorularAlani'); alan.innerHTML = ""; sorular.forEach((s, index) => { const gorselUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(s.gorsel_prompt)}?width=800&height=400&nologo=true`; alan.innerHTML += `<div class="ai-soru-karti"><img src="${gorselUrl}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; margin-bottom: 10px;"><p style="margin: 0 0 10px 0; font-weight: bold;">${s.soru}</p><small>A) ${s.secenekler.A} <br> B) ${s.secenekler.B} <br> C) ${s.secenekler.C} <br> D) ${s.secenekler.D}</small><p style="color: #26890c; margin: 5px 0;">Doğru: ${s.dogruCevap}</p><button class="btn-yesil" onclick="aiSoruyuQuizeEkle(${index})">➕ Seçili Quize Ekle</button></div>`; }); setTimeout(() => { document.getElementById('aiDurum').innerText = ""; }, 3000); });
-        socket.on('ai_hata', (mesaj) => { document.getElementById('aiUretBtn').style.display = 'block'; document.getElementById('aiYukleniyor').style.display = 'none'; document.getElementById('aiDurum').innerText = mesaj; document.getElementById('aiDurum').style.color = "red"; });
+        
+        socket.on('ai_hata', (mesaj) => { 
+            document.getElementById('aiUretBtn').style.display = 'block'; 
+            document.getElementById('aiYukleniyor').style.display = 'none'; 
+            document.getElementById('aiDurum').innerText = mesaj; 
+            document.getElementById('aiDurum').style.color = "red"; 
+            alert("Yapay Zeka Hatası: Lütfen API Anahtarınızı kontrol edin!\n\nDetay: " + mesaj);
+        });
+
         function aiSoruyuQuizeEkle(index) { if(!seciliQuizId) { alert("Quiz seçin!"); return; } const s = uretilenSorular[index]; const gorselUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(s.gorsel_prompt)}?width=800&height=400&nologo=true`; socket.emit('soru_ekle_guncelle', { quizId: seciliQuizId, soru: { soru: s.soru, gorsel: gorselUrl, secenekler: s.secenekler, dogruCevap: s.dogruCevap } }); }
         
         function aktifQuiziBaslat() { 
