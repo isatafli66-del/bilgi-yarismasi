@@ -63,22 +63,13 @@ app.use('/admin', (req, res, next) => {
         if(!kurum.aktif) { res.status(401).send('<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Hesabınız askıya alınmıştır.</h2>'); return; }
         const bugun = new Date(); const bitisTarihi = new Date(kurum.bitis);
         if(bugun > bitisTarihi) { res.status(401).send(`<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Lisans süreniz (${kurum.bitis}) tarihinde dolmuştur.</h2>`); return; }
+        
+        // ÇÖZÜM: Unuttuğumuz Cookie satırını geri koyduk! Sistem artık kim olduğunu biliyor.
+        res.cookie('kurumKodu', kurumKodu); 
         return next();
     }
     res.set('WWW-Authenticate', 'Basic realm="Tazzy Kurum Paneli"');
     res.status(401).send('Geçersiz Kurum Kodu veya Şifre.');
-});
-
-// YENİ: Bağlantı kopmalarına karşı "Ben Kimim?" Doğrulama Rotası
-app.use('/api/me', (req, res) => {
-    const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
-    const [kurumKodu, kurumSifre] = Buffer.from(b64auth, 'base64').toString().split(':');
-    const kurumlar = getKurumlar();
-    if (kurumlar[kurumKodu] && kurumlar[kurumKodu].sifre === kurumSifre) {
-        res.json({ kurumKodu: kurumKodu });
-    } else {
-        res.status(401).json({ error: "Yetkisiz" });
-    }
 });
 
 app.get('/admin', (req, res) => { res.sendFile(__dirname + '/public/admin.html'); });
@@ -136,12 +127,11 @@ io.on('connection', (socket) => {
     // --- YAPAY ZEKA GÜNCELLEMESİ ---
     socket.on('ai_soru_uret', async (istek) => {
         try {
-            if (!API_KEY) {
-                throw new Error("Sunucuda API_KEY bulunamadı! Lütfen Render ayarlarını kontrol et.");
-            }
+            if (!API_KEY) throw new Error("Sunucuda API_KEY bulunamadı!");
+            
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
             
-            // Google'ın en son desteklenen modeli.
+            // Senin stabil çalışan adresin!
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
             
             const response = await fetch(url, { 
@@ -151,27 +141,19 @@ io.on('connection', (socket) => {
             });
             
             const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error?.message || "Bilinmeyen Google API Hatası. API Key'ini kontrol et.");
-            }
-            if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("Yapay zeka cevap veremedi.");
-            }
+            if (!response.ok) throw new Error(data.error?.message || "Google API Hatası.");
+            if (!data.candidates || data.candidates.length === 0) throw new Error("Yapay zeka cevap veremedi.");
 
-            let text = data.candidates[0].content.parts[0].text;
-            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+            let text = data.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
             socket.emit('ai_soru_sonuc', JSON.parse(text));
         } catch (error) { 
-            console.error("AI Hatası:", error);
-            socket.emit('ai_hata', 'Hata: ' + error.message); 
+            socket.emit('ai_hata', error.message); 
         }
     });
 
     // Veri Güncellemeleri
     socket.on('quiz_ekle_guncelle', (quizData) => { 
-        const k = socket.kurumKodu; 
-        if(!k) { console.log("HATA: Kurum kodu eksik, veri reddedildi!"); return; } // Tepkisizlik kontrol noktası
+        const k = socket.kurumKodu; if(!k) return;
         const veriler = loadKurumData(k); if(!quizData.id) quizData.id = "quiz_" + Date.now(); if(!veriler.quizler[quizData.id]) quizData.sorular = []; else quizData.sorular = veriler.quizler[quizData.id].sorular; veriler.quizler[quizData.id] = quizData; saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); 
     });
     socket.on('quiz_sil', (quizId) => { const k = socket.kurumKodu; if(!k) return; const veriler = loadKurumData(k); delete veriler.quizler[quizId]; saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); });
@@ -222,8 +204,4 @@ io.on('connection', (socket) => {
     socket.on('admin_oyuncu_ad_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].isim = data.isim; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
     socket.on('admin_oyuncu_sil', (id) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[id]) return; delete oyun.oyuncular[id]; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
 
-    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${socket.pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); } } });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`Sunucu mükemmel çalışıyor! Port: ${PORT}`); });
+    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyunc
