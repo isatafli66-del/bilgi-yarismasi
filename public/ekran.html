@@ -33,7 +33,6 @@
         .ses-btn { background: #e21b3c; border: none; color: white; padding: 15px 30px; font-size: 24px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 20px; box-shadow: 0 6px 0px #b81631; transition: 0.1s; }
         .ses-btn:active { transform: translateY(6px); box-shadow: none; }
 
-        /* QR KOD ALANI */
         .giris-paneli { background: white; padding: 30px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.4); color: #333; }
         .pin-kodu { font-size: 70px; font-weight: bold; letter-spacing: 5px; color: #e21b3c; margin: 10px 0; }
         #qrKutu { margin: 20px auto; display: flex; justify-content: center; padding: 10px; background: white; border: 2px solid #eee; border-radius: 8px; width: fit-content; }
@@ -92,14 +91,18 @@
         const socket = io();
         socket.emit('ekran_giris', KURUM_KODU);
 
+        // Kopma durumunda otomatik kimlik bildirme
+        socket.on('connect', () => {
+            if(KURUM_KODU) socket.emit('ekran_giris', KURUM_KODU);
+        });
+
         let sesAktif = false;
         const sesContext = new (window.AudioContext || window.webkitAudioContext)();
         const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
 
         socket.on('ayarlar_guncelle', (ayarlar) => {
             const logo = document.getElementById('ekranLogo');
-            if(ayarlar.logo) { logo.src = ayarlar.logo; logo.classList.remove('gizli'); } 
-            else { logo.classList.add('gizli'); }
+            if(ayarlar.logo) { logo.src = ayarlar.logo; logo.classList.remove('gizli'); } else { logo.classList.add('gizli'); }
         });
 
         document.getElementById('sesBtn').addEventListener('click', () => {
@@ -118,20 +121,16 @@
             alkisSesi.pause(); alkisSesi.currentTime = 0;
         }
 
-        // YENİ: Oturum başlayınca QR ve PIN bas
         socket.on('oturum_basladi', (data) => { 
-            tumEkranlariGizle(); 
-            document.getElementById('qrBeklemeEkrani').classList.remove('gizli'); 
-            document.getElementById('devEkraniPin').innerText = data.pin;
-            
-            document.getElementById('qrKutu').innerHTML = ""; // Temizle
+            tumEkranlariGizle(); document.getElementById('qrBeklemeEkrani').classList.remove('gizli'); document.getElementById('devEkraniPin').innerText = data.pin;
+            document.getElementById('qrKutu').innerHTML = ""; 
+            // YENİ DOMAİN'İ OTOMATİK ALGILAR
             const url = `https://${window.location.host}/?pin=${data.pin}`;
             new QRCode(document.getElementById("qrKutu"), { text: url, width: 250, height: 250, colorDark: "#333", colorLight: "#ffffff" });
         });
 
         socket.on('yeni_soru', (gelenSoru) => {
-            tumEkranlariGizle();
-            document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('zamanlayici').classList.remove('gizli'); document.getElementById('zamanlayici').style.background = '#864cbf';
+            tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('zamanlayici').classList.remove('gizli'); document.getElementById('zamanlayici').style.background = '#864cbf';
             document.getElementById('soruBaslik').innerText = gelenSoru.soru; const resim = document.getElementById('soruResmi');
             if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
             document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a"><div class="harf-ikon">A</div> ${gelenSoru.secenekler.A}</div><div class="secenek-kart s-b"><div class="harf-ikon">B</div> ${gelenSoru.secenekler.B}</div><div class="secenek-kart s-c"><div class="harf-ikon">C</div> ${gelenSoru.secenekler.C}</div><div class="secenek-kart s-d"><div class="harf-ikon">D</div> ${gelenSoru.secenekler.D}</div>`;
