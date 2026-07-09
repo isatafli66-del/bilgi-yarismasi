@@ -131,18 +131,18 @@ io.on('connection', (socket) => {
         io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); 
     });
 
-    // --- YAPAY ZEKA ---
+   // --- YAPAY ZEKA ---
     socket.on('ai_soru_uret', async (istek) => {
         try {
-            // 1. API KEY Kontrolü
+            // 1. API_KEY Kontrolü
             if (!API_KEY) {
                 throw new Error("Sunucuda API_KEY bulunamadı! Lütfen Render ayarlarını kontrol et.");
             }
 
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
             
-            // 2. En güncel ve stabil model olan gemini-1.5-flash sürümüne güncelledik
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+            // ÇÖZÜM BURADA: Model adını Google'ın en güncel ve tam adıyla (gemini-1.5-flash-latest) değiştirdik.
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
             
             const response = await fetch(url, { 
                 method: 'POST', 
@@ -152,14 +152,12 @@ io.on('connection', (socket) => {
             
             const data = await response.json();
             
-            // 3. Google'dan hata dönerse sistemi çökertmek yerine hatayı ekrana basıyoruz
+            // Hata yakalama
             if (data.error) {
-                throw new Error("Google API Reddedildi: " + data.error.message);
+                throw new Error("Google API Hatası: " + data.error.message);
             }
-            
-            // 4. Güvenlik filtresine takılma durumunda kontrol
             if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("Yapay zeka cevap veremedi. (Güvenlik filtresine takılmış olabilir).");
+                throw new Error("Yapay zeka cevap veremedi.");
             }
 
             let text = data.candidates[0].content.parts[0].text;
