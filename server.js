@@ -204,4 +204,8 @@ io.on('connection', (socket) => {
     socket.on('admin_oyuncu_ad_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].isim = data.isim; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
     socket.on('admin_oyuncu_sil', (id) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[id]) return; delete oyun.oyuncular[id]; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
 
-    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyunc
+    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${socket.pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); } } });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => { console.log(`Sunucu mükemmel çalışıyor! Port: ${PORT}`); });
