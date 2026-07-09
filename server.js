@@ -4,7 +4,8 @@ const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = (process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').trim();
 
 const app = express();
 const server = http.createServer(app);
@@ -13,10 +14,22 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 // --- ÇOKLU KURUM VERİ VE LİSANS YÖNETİMİ ---
-const DATA_DIR = path.join(__dirname, 'data');
+// Render'da deploy sonrası verilerin sıfırlanmaması için kalıcı disk yolu kullanılır.
+// Render panelinde Disk Mount Path olarak /var/data verirseniz otomatik buraya yazar.
+// İsterseniz Environment'a DATA_DIR=/var/data da ekleyebilirsiniz.
+const DATA_DIR = process.env.DATA_DIR || (fs.existsSync('/var/data') ? '/var/data' : path.join(__dirname, 'data'));
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const KURUMLAR_DOSYASI = path.join(DATA_DIR, 'kurumlar.json');
+
+function getVarsayilanQuizler() {
+    const varsayilanPath = path.join(__dirname, 'quizler.json');
+    if (fs.existsSync(varsayilanPath)) {
+        try { return JSON.parse(fs.readFileSync(varsayilanPath, 'utf8')); } catch(e) {}
+    }
+    return { "quiz_1": { id: "quiz_1", ad: "Örnek Teknoloji Quizi", sure: 20, puan: 100, sorular: [] } };
+}
+
 function getKurumlar() {
     if(!fs.existsSync(KURUMLAR_DOSYASI)) {
         fs.writeFileSync(KURUMLAR_DOSYASI, JSON.stringify({
@@ -29,7 +42,7 @@ function getKurumlar() {
 function loadKurumData(kurum) {
     const qPath = path.join(DATA_DIR, `${kurum}_quizler.json`);
     const aPath = path.join(DATA_DIR, `${kurum}_ayarlar.json`);
-    let quizler = { "quiz_1": { id: "quiz_1", ad: "Örnek Teknoloji Quizi", sure: 20, puan: 100, sorular: [] } };
+    let quizler = getVarsayilanQuizler();
     let ayarlar = { logo: null };
     if(fs.existsSync(qPath)) { try { quizler = JSON.parse(fs.readFileSync(qPath, 'utf8')); } catch(e){} }
     if(fs.existsSync(aPath)) { try { ayarlar = JSON.parse(fs.readFileSync(aPath, 'utf8')); } catch(e){} }
@@ -127,27 +140,78 @@ io.on('connection', (socket) => {
     // --- YAPAY ZEKA GÜNCELLEMESİ ---
     socket.on('ai_soru_uret', async (istek) => {
         try {
-            if (!API_KEY) throw new Error("Sunucuda API_KEY bulunamadı!");
-            
-            const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
-            
-            // Senin stabil çalışan adresin!
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
-            
-            const response = await fetch(url, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) 
-            });
-            
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error?.message || "Google API Hatası.");
-            if (!data.candidates || data.candidates.length === 0) throw new Error("Yapay zeka cevap veremedi.");
+            if (!API_KEY) throw new Error("Sunucuda API_KEY bulunamadı. Render > Environment bölümüne geçerli Gemini API anahtarını API_KEY olarak ekleyin.");
 
-            let text = data.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            socket.emit('ai_soru_sonuc', JSON.parse(text));
-        } catch (error) { 
-            socket.emit('ai_hata', error.message); 
+            const konu = String(istek?.konu || '').trim().slice(0, 200);
+            const zorluk = String(istek?.zorluk || 'Orta').trim().slice(0, 30);
+            const sayi = Math.max(1, Math.min(parseInt(istek?.sayi, 10) || 3, 10));
+            if (!konu) throw new Error("Konu başlığı boş olamaz.");
+
+            const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın.
+Konu: "${konu}"
+Zorluk: "${zorluk}"
+Soru sayısı: ${sayi}
+
+Kurallar:
+- Türkçe, eğlenceli ve net çoktan seçmeli sorular üret.
+- Her soruda A, B, C, D seçenekleri eksiksiz olsun.
+- dogruCevap sadece A, B, C veya D olsun.
+- Her soru için İngilizce, kısa, güvenli bir gorsel_prompt yaz.
+- Markdown, açıklama veya kod bloğu yazma.
+- Cevabı yalnızca geçerli JSON dizisi olarak döndür.
+
+Format:
+[{"soru":"...","gorsel_prompt":"...","secenekler":{"A":"...","B":"...","C":"...","D":"..."},"dogruCevap":"A"}]`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(API_KEY)}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: {
+                        temperature: 0.8,
+                        responseMimeType: 'application/json'
+                    }
+                })
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const apiMesaj = data.error?.message || `Google API HTTP ${response.status}`;
+                throw new Error(`Yapay zeka servis hatası: ${apiMesaj}`);
+            }
+
+            const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+            if (!text) throw new Error("Yapay zeka boş cevap döndürdü.");
+
+            let temiz = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const ilk = temiz.indexOf('[');
+            const son = temiz.lastIndexOf(']');
+            if (ilk !== -1 && son !== -1) temiz = temiz.slice(ilk, son + 1);
+
+            let sorular;
+            try { sorular = JSON.parse(temiz); }
+            catch(e) { throw new Error("Yapay zeka cevabı JSON formatında okunamadı. Lütfen tekrar deneyin."); }
+
+            if (!Array.isArray(sorular) || sorular.length === 0) throw new Error("Yapay zeka soru listesi oluşturamadı.");
+            const duzeltilmis = sorular.slice(0, sayi).map((s, i) => ({
+                soru: String(s.soru || `Soru ${i + 1}`).trim(),
+                gorsel_prompt: String(s.gorsel_prompt || `${konu} quiz illustration`).trim(),
+                secenekler: {
+                    A: String(s.secenekler?.A || '').trim(),
+                    B: String(s.secenekler?.B || '').trim(),
+                    C: String(s.secenekler?.C || '').trim(),
+                    D: String(s.secenekler?.D || '').trim()
+                },
+                dogruCevap: ['A','B','C','D'].includes(String(s.dogruCevap || '').trim().toUpperCase()) ? String(s.dogruCevap).trim().toUpperCase() : 'A'
+            })).filter(s => s.soru && s.secenekler.A && s.secenekler.B && s.secenekler.C && s.secenekler.D);
+
+            if (duzeltilmis.length === 0) throw new Error("Yapay zeka eksiksiz soru oluşturamadı. Lütfen tekrar deneyin.");
+            socket.emit('ai_soru_sonuc', duzeltilmis);
+        } catch (error) {
+            console.error('AI soru üretme hatası:', error);
+            socket.emit('ai_hata', error.message || 'Bilinmeyen yapay zeka hatası');
         }
     });
 
