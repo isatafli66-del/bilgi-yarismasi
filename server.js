@@ -19,7 +19,6 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const KURUMLAR_DOSYASI = path.join(DATA_DIR, 'kurumlar.json');
 function getKurumlar() {
     if(!fs.existsSync(KURUMLAR_DOSYASI)) {
-        // Sistem ilk kurulduğunda varsayılan bir kurum ekleyelim
         fs.writeFileSync(KURUMLAR_DOSYASI, JSON.stringify({
             "ROOF-01": { sifre: "123456", bitis: "2030-01-01", aktif: true }
         }, null, 2));
@@ -46,8 +45,7 @@ function saveKurumData(kurum, tur, data) {
 app.use('/tazzy-master', (req, res, next) => {
     const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
     const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
-    const masterSifre = process.env.MASTER_SIFRE || 'tazzy123'; // Sunucudan belirleyeceğin ana şifre
-
+    const masterSifre = process.env.MASTER_SIFRE || 'tazzy123'; 
     if (login === 'tazzy' && password === masterSifre) { return next(); }
     res.set('WWW-Authenticate', 'Basic realm="Master Paneli"');
     res.status(401).send('Yetkisiz Erişim!');
@@ -59,105 +57,78 @@ app.get('/tazzy-master', (req, res) => { res.sendFile(__dirname + '/public/maste
 app.use('/admin', (req, res, next) => {
     const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
     const [kurumKodu, kurumSifre] = Buffer.from(b64auth, 'base64').toString().split(':');
-    
-    const kurumlar = getKurumlar();
-    const kurum = kurumlar[kurumKodu];
+    const kurumlar = getKurumlar(); const kurum = kurumlar[kurumKodu];
 
     if (kurum && kurum.sifre === kurumSifre) {
-        if(!kurum.aktif) {
-            res.status(401).send('<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Hesabınız askıya alınmıştır. Lütfen Tazzy ile iletişime geçin.</h2>');
-            return;
-        }
-        
-        // Lisans Tarihi Kontrolü
-        const bugun = new Date();
-        const bitisTarihi = new Date(kurum.bitis);
-        if(bugun > bitisTarihi) {
-            res.status(401).send(`<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Lisans süreniz (${kurum.bitis}) tarihinde dolmuştur. Yenilemek için Tazzy ile iletişime geçin.</h2>`);
-            return;
-        }
-
+        if(!kurum.aktif) { res.status(401).send('<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Hesabınız askıya alınmıştır.</h2>'); return; }
+        const bugun = new Date(); const bitisTarihi = new Date(kurum.bitis);
+        if(bugun > bitisTarihi) { res.status(401).send(`<h2 style="font-family:sans-serif; text-align:center; margin-top:50px; color:red;">Lisans süreniz (${kurum.bitis}) tarihinde dolmuştur.</h2>`); return; }
         res.cookie('kurumKodu', kurumKodu);
         return next();
     }
     res.set('WWW-Authenticate', 'Basic realm="Tazzy Kurum Paneli"');
     res.status(401).send('Geçersiz Kurum Kodu veya Şifre.');
 });
-
 app.get('/admin', (req, res) => { res.sendFile(__dirname + '/public/admin.html'); });
 app.get('/ekran', (req, res) => { res.sendFile(__dirname + '/public/ekran.html'); });
-app.get('/logout', (req, res) => {
-    res.status(401).send(`
-        <h1 style="text-align:center; font-family:sans-serif; margin-top:50px; color:#46178f;">Oturum Güvenle Kapatıldı! 🔒</h1>
-        <div style="text-align:center; margin-top:20px;"><a href="/admin" style="padding:10px 20px; background:#26890c; color:white; text-decoration:none; border-radius:5px; font-family:sans-serif;">Tekrar Giriş Yap</a></div>
-        <script>let xhr = new XMLHttpRequest(); xhr.open("GET", "/admin", true, "logout", "logout"); xhr.send();</script>
-    `);
-});
+app.get('/logout', (req, res) => { res.status(401).send(`<script>let xhr = new XMLHttpRequest(); xhr.open("GET", "/admin", true, "logout", "logout"); xhr.send(); window.location.href="/admin";</script>`); });
 
-// --- OYUN MOTORU RAM VERİLERİ ---
+// --- OYUN MOTORU ---
 const kurumAktifPin = {}; 
 const oyunlar = {};       
 
 io.on('connection', (socket) => {
 
-    // --- MASTER (SÜPER ADMİN) SOKETLERİ ---
+    // --- MASTER SOKETLERİ ---
     socket.on('master_veri_istek', () => { socket.emit('master_veriler', getKurumlar()); });
     
+    socket.on('master_kurum_detay_istek', (kodu) => {
+        const ayarlar = loadKurumData(kodu).ayarlar;
+        socket.emit('master_kurum_detay_cevap', { kodu: kodu, logo: ayarlar.logo });
+    });
+
     socket.on('master_kurum_ekle_guncelle', (data) => {
         let kurumlar = getKurumlar();
         kurumlar[data.kodu] = { sifre: data.sifre, bitis: data.bitis, aktif: data.aktif };
         fs.writeFileSync(KURUMLAR_DOSYASI, JSON.stringify(kurumlar, null, 2));
-        socket.emit('master_veriler', kurumlar);
-    });
-
-    socket.on('master_kurum_sil', (kodu) => {
-        let kurumlar = getKurumlar();
-        if(kurumlar[kodu]) { delete kurumlar[kodu]; fs.writeFileSync(KURUMLAR_DOSYASI, JSON.stringify(kurumlar, null, 2)); }
-        socket.emit('master_veriler', kurumlar);
-    });
-
-
-    // --- KURUM (TENANT) SOKETLERİ ---
-    socket.on('admin_giris', (kurumKodu) => {
-        if(!kurumKodu) return;
-        socket.kurumKodu = kurumKodu;
-        socket.join(`admin_${kurumKodu}`);
         
-        const veriler = loadKurumData(kurumKodu);
-        socket.emit('verileri_guncelle', veriler.quizler);
-        socket.emit('ayarlar_guncelle', veriler.ayarlar);
-
-        let aktifPin = kurumAktifPin[kurumKodu];
-        if(aktifPin && oyunlar[aktifPin]) {
-            socket.emit('oturum_basladi', { pin: aktifPin });
-            socket.emit('admin_oyuncular_guncelle', oyunlar[aktifPin].oyuncular);
+        // Master logo yüklediyse kaydet ve tüm odalara güncelleme at
+        if(data.logoBase64 !== undefined) {
+            const veriler = loadKurumData(data.kodu);
+            veriler.ayarlar.logo = data.logoBase64;
+            saveKurumData(data.kodu, 'ayarlar', veriler.ayarlar);
+            io.to(`admin_${data.kodu}`).emit('ayarlar_guncelle', veriler.ayarlar);
+            io.to(`ekran_${data.kodu}`).emit('ayarlar_guncelle', veriler.ayarlar);
+            let pin = kurumAktifPin[data.kodu]; if(pin) io.to(`pin_${pin}`).emit('ayarlar_guncelle', veriler.ayarlar);
         }
+        socket.emit('master_veriler', kurumlar);
+    });
+
+    socket.on('master_kurum_sil', (kodu) => { let kurumlar = getKurumlar(); if(kurumlar[kodu]) { delete kurumlar[kodu]; fs.writeFileSync(KURUMLAR_DOSYASI, JSON.stringify(kurumlar, null, 2)); } socket.emit('master_veriler', kurumlar); });
+
+
+    // --- KURUM SOKETLERİ ---
+    socket.on('admin_giris', (kurumKodu) => {
+        if(!kurumKodu) return; socket.kurumKodu = kurumKodu; socket.join(`admin_${kurumKodu}`);
+        const veriler = loadKurumData(kurumKodu); socket.emit('verileri_guncelle', veriler.quizler); socket.emit('ayarlar_guncelle', veriler.ayarlar);
+        let pin = kurumAktifPin[kurumKodu]; if(pin && oyunlar[pin]) { socket.emit('oturum_basladi', { pin: pin }); socket.emit('admin_oyuncular_guncelle', oyunlar[pin].oyuncular); }
     });
 
     socket.on('ekran_giris', (kurumKodu) => {
-        if(!kurumKodu) return;
-        socket.join(`ekran_${kurumKodu}`);
-        const veriler = loadKurumData(kurumKodu);
-        socket.emit('ayarlar_guncelle', veriler.ayarlar);
-        let aktifPin = kurumAktifPin[kurumKodu];
-        if(aktifPin) socket.emit('oturum_basladi', { pin: aktifPin });
+        if(!kurumKodu) return; socket.join(`ekran_${kurumKodu}`); const veriler = loadKurumData(kurumKodu); socket.emit('ayarlar_guncelle', veriler.ayarlar);
+        let pin = kurumAktifPin[kurumKodu]; if(pin) socket.emit('oturum_basladi', { pin: pin });
     });
 
     socket.on('oyuncu_katil', (data) => {
-        let pin = data.pin.toString().trim();
-        let oyun = oyunlar[pin];
+        let pin = data.pin.toString().trim(); let oyun = oyunlar[pin];
         if(!oyun) { socket.emit('katilma_hatasi', 'Hatalı PIN Girdiniz!'); return; }
-
-        socket.pin = pin;
-        socket.join(`pin_${pin}`);
-        oyun.oyuncular[socket.id] = { isim: data.isim, puan: 0 };
-
-        const veriler = loadKurumData(oyun.kurumKodu);
-        socket.emit('ayarlar_guncelle', veriler.ayarlar);
-        socket.emit('katilma_basarili');
-
+        socket.pin = pin; socket.join(`pin_${pin}`); oyun.oyuncular[socket.id] = { isim: data.isim, puan: 0 };
+        const veriler = loadKurumData(oyun.kurumKodu); socket.emit('ayarlar_guncelle', veriler.ayarlar); socket.emit('katilma_basarili');
         io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
+        
+        // Puanları ekrana ve oyunculara anlık yansıt
         io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); 
     });
 
     // Yapay Zeka
@@ -166,25 +137,11 @@ io.on('connection', (socket) => {
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${API_KEY}`;
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) });
-            const data = await response.json();
-            let text = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-            socket.emit('ai_soru_sonuc', JSON.parse(text));
+            const data = await response.json(); let text = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim(); socket.emit('ai_soru_sonuc', JSON.parse(text));
         } catch (error) { socket.emit('ai_hata', 'API Hatası: ' + error.message); }
     });
 
-    // Veri Güncellemeleri
-    socket.on('admin_logo_guncelle', (logoBase64) => {
-        const k = socket.kurumKodu; if(!k) return;
-        const veriler = loadKurumData(k); veriler.ayarlar.logo = logoBase64; saveKurumData(k, 'ayarlar', veriler.ayarlar);
-        io.to(`admin_${k}`).emit('ayarlar_guncelle', veriler.ayarlar); io.to(`ekran_${k}`).emit('ayarlar_guncelle', veriler.ayarlar);
-        let pin = kurumAktifPin[k]; if(pin) io.to(`pin_${pin}`).emit('ayarlar_guncelle', veriler.ayarlar);
-    });
-    socket.on('quiz_ekle_guncelle', (quizData) => {
-        const k = socket.kurumKodu; if(!k) return;
-        const veriler = loadKurumData(k); if(!quizData.id) quizData.id = "quiz_" + Date.now();
-        if(!veriler.quizler[quizData.id]) quizData.sorular = []; else quizData.sorular = veriler.quizler[quizData.id].sorular;
-        veriler.quizler[quizData.id] = quizData; saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
-    });
+    socket.on('quiz_ekle_guncelle', (quizData) => { const k = socket.kurumKodu; if(!k) return; const veriler = loadKurumData(k); if(!quizData.id) quizData.id = "quiz_" + Date.now(); if(!veriler.quizler[quizData.id]) quizData.sorular = []; else quizData.sorular = veriler.quizler[quizData.id].sorular; veriler.quizler[quizData.id] = quizData; saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); });
     socket.on('quiz_sil', (quizId) => { const k = socket.kurumKodu; if(!k) return; const veriler = loadKurumData(k); delete veriler.quizler[quizId]; saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); });
     socket.on('soru_ekle_guncelle', (data) => { const k = socket.kurumKodu; if(!k) return; const veriler = loadKurumData(k); const q = veriler.quizler[data.quizId]; if(q) { if(!data.soru.id) { data.soru.id = Date.now(); q.sorular.push(data.soru); } else { const index = q.sorular.findIndex(s => s.id === data.soru.id); if(index !== -1) q.sorular[index] = data.soru; } saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); } });
     socket.on('soru_sil', (data) => { const k = socket.kurumKodu; if(!k) return; const veriler = loadKurumData(k); const q = veriler.quizler[data.quizId]; if(q) { q.sorular = q.sorular.filter(s => s.id !== data.soruId); saveKurumData(k, 'quizler', veriler.quizler); io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler); } });
@@ -220,20 +177,25 @@ io.on('connection', (socket) => {
         let oyuncu = oyun.oyuncular[socket.id]; if(!oyuncu) return;
         const quizler = loadKurumData(oyun.kurumKodu).quizler;
         if (secilenSecenek === quizler[oyun.quizId].sorular[oyun.soruSirasi].dogruCevap) { oyuncu.puan += quizler[oyun.quizId].puan; }
-        io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); 
+        io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
     });
 
     socket.on('sure_durdur_devam', (durum) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; if(pin && oyunlar[pin]) oyunlar[pin].oyunDuraklatildi = durum; });
     socket.on('admin_skor_goster', () => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; if(pin) { io.to(`ekran_${k}`).emit('skor_tablosunu_goster'); io.to(`pin_${pin}`).emit('skor_tablosunu_goster'); } });
-    socket.on('admin_podyum_goster', () => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; if(pin && oyunlar[pin]) { io.to(`ekran_${k}`).emit('quiz_bitti_final', Object.values(oyunlar[pin].oyuncular)); io.to(`pin_${pin}`).emit('quiz_bitti_final'); } });
+    socket.on('admin_podyum_goster', () => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; if(pin && oyunlar[pin]) { 
+        io.to(`ekran_${k}`).emit('quiz_bitti_final', Object.values(oyunlar[pin].oyuncular)); 
+        io.to(`pin_${pin}`).emit('quiz_bitti_final', Object.values(oyunlar[pin].oyuncular)); // Oyunculara da listeyi gönder
+    } });
 
-    // Manuel Oyuncu
-    socket.on('admin_oyuncu_ekle', (isim) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun) return; const id = 'manuel_' + Date.now(); oyun.oyuncular[id] = { isim: isim, puan: 0 }; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
-    socket.on('admin_puan_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].puan = parseInt(data.puan) || 0; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
-    socket.on('admin_oyuncu_ad_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].isim = data.isim; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
-    socket.on('admin_oyuncu_sil', (id) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[id]) return; delete oyun.oyuncular[id]; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
+    // Manuel Puan Müdahalelerinde Telefonları da Güncelle
+    socket.on('admin_oyuncu_ekle', (isim) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun) return; const id = 'manuel_' + Date.now(); oyun.oyuncular[id] = { isim: isim, puan: 0 }; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
+    socket.on('admin_puan_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].puan = parseInt(data.puan) || 0; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
+    socket.on('admin_oyuncu_ad_duzenle', (data) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[data.id]) return; oyun.oyuncular[data.id].isim = data.isim; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
+    socket.on('admin_oyuncu_sil', (id) => { let k = socket.kurumKodu; let pin = kurumAktifPin[k]; let oyun = oyunlar[pin]; if(!oyun || !oyun.oyuncular[id]) return; delete oyun.oyuncular[id]; io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); });
 
-    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); } } });
+    socket.on('disconnect', () => { if (socket.pin && oyunlar[socket.pin]) { let oyun = oyunlar[socket.pin]; if(oyun.oyuncular[socket.id]) { delete oyun.oyuncular[socket.id]; io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular); io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); io.to(`pin_${socket.pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular)); } } });
 });
 
 const PORT = process.env.PORT || 3000;
