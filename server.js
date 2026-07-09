@@ -135,13 +135,13 @@ io.on('connection', (socket) => {
     socket.on('ai_soru_uret', async (istek) => {
         try {
             if (!API_KEY) {
-                throw new Error("Sunucuda API_KEY bulunamadı! Lütfen Render ayarlarını kontrol et.");
+                throw new Error("Sunucuda API_KEY bulunamadı!");
             }
 
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
             
-            // ÇÖZÜM: Tüm hesaplarda koşulsuz çalışan ana "gemini-pro" modeline geçtik.
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+            // HATAMI DÜZELTTİĞİM YER: Senin orijinal, tıkır tıkır çalışan Gemini 3.5 Flash V1 adresin!
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${API_KEY}`;
             
             const response = await fetch(url, { 
                 method: 'POST', 
@@ -155,7 +155,7 @@ io.on('connection', (socket) => {
                 throw new Error(data.error.message);
             }
             if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("Yapay zeka cevap veremedi. (Güvenlik filtresine takılmış olabilir).");
+                throw new Error("Yapay zeka cevap veremedi. (Güvenlik filtresi olabilir).");
             }
 
             let text = data.candidates[0].content.parts[0].text;
