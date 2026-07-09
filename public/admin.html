@@ -28,10 +28,13 @@
 <body>
 
     <div class="header">
-        <div>
-            <h1 style="margin:0;">🛠️ Yönetim <span id="kurumIsmi" style="font-size: 18px; color: #d89e00;"></span></h1>
-            <button onclick="anaEkraniAc()" style="margin-top: 10px; padding: 8px 15px; background: #f1c40f; color: #333; width: auto;">🖥️ Ana Ekranı Aç</button>
-            <a href="/logout" style="display: inline-block; margin-top: 10px; margin-left: 10px; padding: 8px 15px; background: #e21b3c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">🚪 Çıkış</a>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img id="adminHeaderLogo" src="" style="height: 50px; border-radius: 5px; display: none; background: white; padding: 3px;">
+            <div>
+                <h1 style="margin:0;">🛠️ Yönetim <span id="kurumIsmi" style="font-size: 18px; color: #d89e00;"></span></h1>
+                <button onclick="anaEkraniAc()" style="margin-top: 10px; padding: 8px 15px; background: #f1c40f; color: #333; width: auto;">🖥️ Ana Ekranı Aç</button>
+                <a href="/logout" style="display: inline-block; margin-top: 10px; margin-left: 10px; padding: 8px 15px; background: #e21b3c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">🚪 Çıkış</a>
+            </div>
         </div>
         
         <div class="canli-yayin-kutusu" style="min-width: 400px;">
@@ -47,6 +50,7 @@
     </div>
 
     <div class="container">
+        <!-- 1. PANEL -->
         <div class="panel">
             <h2>1. Quiz Paketleri</h2>
             <div id="quizListesi"></div>
@@ -64,6 +68,7 @@
             </div>
         </div>
 
+        <!-- 2. PANEL -->
         <div class="panel">
             <h2>🤖 Yapay Zeka Asistanı</h2>
             <div class="ai-kutu">
@@ -79,6 +84,7 @@
             <div id="aiUretilenSorularAlani"></div>
         </div>
 
+        <!-- 3. PANEL -->
         <div class="panel">
             <h2>3. Quiz İçeriği <span id="seciliQuizAdi" style="font-size: 14px; color: #777;"></span></h2>
             <div id="soruListesiVeIslemler" style="display: none;">
@@ -101,6 +107,7 @@
             </div>
         </div>
 
+        <!-- 4. PANEL -->
         <div class="panel">
             <h2>👥 Oyuncu Yönetimi</h2>
             <div style="display: flex; gap: 5px; margin-bottom: 15px; background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 8px;">
@@ -109,19 +116,9 @@
             </div>
             <div id="canliOyuncularListesi" style="max-height: 40vh; overflow-y: auto;"></div>
         </div>
-
-        <div class="panel">
-            <h2>⚙️ Kurum Ayarları</h2>
-            <p style="font-size: 13px; color: #666;">Kurumunuza özel logonuzu yükleyin.</p>
-            <div style="background: #fdfdfd; padding: 15px; border: 1px solid #eee; border-radius: 8px; text-align: center;">
-                <img id="onizlemeLogo" src="" style="max-height: 80px; margin-bottom: 15px; display: none; margin-left: auto; margin-right: auto; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <input type="file" id="logoInput" accept="image/*" style="margin-bottom: 10px;">
-                <button class="btn-mor" onclick="logoYukle()">Logoyu Kaydet / Güncelle</button>
-                <button class="btn-kirmizi" onclick="logoSil()" style="margin-top: 5px;">Logoyu Kaldır</button>
-            </div>
-        </div>
     </div>
 
+    <!-- TAZZY İMZA ALANI -->
     <div style="text-align: center; margin-top: 30px; padding-bottom: 20px; color: #777; font-size: 13px; display: flex; justify-content: center; align-items: center; gap: 8px;">
         <span style="letter-spacing: 1px;">DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 25px;">
@@ -129,19 +126,11 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // Tarayıcıdaki kurum kodunu oku
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return null;
-        }
+        function getCookie(name) { const value = `; ${document.cookie}`; const parts = value.split(`; ${name}=`); if (parts.length === 2) return parts.pop().split(';').shift(); return null; }
         const KURUM_KODU = getCookie('kurumKodu');
         document.getElementById('kurumIsmi').innerText = `(${KURUM_KODU})`;
 
-        function anaEkraniAc() {
-            window.open('/ekran?kurum=' + KURUM_KODU, '_blank');
-        }
+        function anaEkraniAc() { window.open('/ekran?kurum=' + KURUM_KODU, '_blank'); }
 
         const socket = io();
         socket.emit('admin_giris', KURUM_KODU);
@@ -154,20 +143,10 @@
             pinKutu.style.display = 'block';
         });
 
-        // --- LOGO İŞLEMLERİ ---
         socket.on('ayarlar_guncelle', (ayarlar) => {
-            const img = document.getElementById('onizlemeLogo');
+            const img = document.getElementById('adminHeaderLogo');
             if(ayarlar.logo) { img.src = ayarlar.logo; img.style.display = 'block'; } else { img.style.display = 'none'; }
         });
-        function logoYukle() {
-            const file = document.getElementById('logoInput').files[0];
-            if(file) {
-                const reader = new FileReader();
-                reader.onload = function(e) { socket.emit('admin_logo_guncelle', e.target.result); };
-                reader.readAsDataURL(file);
-            } else { alert("Lütfen bir resim seçin."); }
-        }
-        function logoSil() { socket.emit('admin_logo_guncelle', null); document.getElementById('logoInput').value = ""; }
 
         // --- ADMİN CANLI YAYIN KONTROLLERİ ---
         let sureDuraklatildi = false;
