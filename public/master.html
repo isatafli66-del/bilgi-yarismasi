@@ -1,80 +1,109 @@
 <!DOCTYPE html>
-<html lang=\"tr\">
+<html lang="tr">
 <head>
-    <meta charset=\"UTF-8\">
+    <meta charset="UTF-8">
     <title>Süper Admin | Tazzy Cloud</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; margin: 0; padding: 30px; color: #fff; }
-        .header { background: #16213e; padding: 20px; border-radius: 10px; text-align: center; border-bottom: 3px solid #e94560; margin-bottom: 30px; }
-        .header h1 { margin: 0; color: #e94560; font-size: 32px; letter-spacing: 2px; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; margin: 0; padding: 30px; color: #e2e8f0; }
+        .header { background: #1e293b; padding: 20px; border-radius: 12px; text-align: center; border-bottom: 4px solid #3b82f6; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header h1 { margin: 0; color: #3b82f6; font-size: 32px; letter-spacing: 1px; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        .header p { color: #94a3b8; margin: 8px 0 0 0; font-size: 15px; }
         
-        .container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; }
-        .panel { background: #0f3460; padding: 25px; border-radius: 10px; flex: 1; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .container { display: flex; gap: 30px; max-width: 1300px; margin: 0 auto; flex-wrap: wrap; }
+        .panel { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .form-panel { flex: 1; min-width: 350px; border-top: 4px solid #10b981; }
+        .list-panel { flex: 2; min-width: 550px; border-top: 4px solid #8b5cf6; }
         
-        h2 { border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-top: 0; color: #43dde6; }
+        h2 { padding-bottom: 15px; margin-top: 0; border-bottom: 1px solid #334155; }
+        .form-panel h2 { color: #10b981; }
+        .list-panel h2 { color: #8b5cf6; }
         
-        input { width: 100%; padding: 12px; margin: 8px 0 20px 0; border: none; border-radius: 6px; box-sizing: border-box; background: #1a1a2e; color: white; font-size: 16px; border-left: 4px solid #e94560; }
-        input:focus { outline: none; border-left-color: #43dde6; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 14px; font-weight: 600; }
+        input[type="text"], input[type="date"] { width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 8px; box-sizing: border-box; background: #0f172a; color: white; font-size: 16px; transition: 0.3s; }
+        input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         
-        button { background: #e94560; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.3s; }
-        button:hover { background: #ff5270; transform: translateY(-2px); }
-        .btn-kirmizi { background: #c0392b; }
+        /* O garip duran 2 satırı kutu içine alıp hizaladık */
+        .checkbox-kutu { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 25px; cursor: pointer; }
+        .checkbox-kutu input { width: 24px; height: 24px; cursor: pointer; margin: 0; }
+        .checkbox-kutu span { font-size: 16px; font-weight: bold; color: #e2e8f0; }
+
+        button { background: #3b82f6; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        button:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn-kirmizi { background: #ef4444; }
+        .btn-kirmizi:hover { background: #dc2626; }
+        .btn-sari { background: #f59e0b; color: #000; }
+        .btn-sari:hover { background: #d97706; }
         
-        .kurum-kart { background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #43dde6; }
-        .kurum-kart.pasif { border-left-color: #e21b3c; opacity: 0.7; }
-        .kurum-bilgi strong { font-size: 20px; color: #fff; }
-        .kurum-bilgi span { display: block; color: #aaa; margin-top: 5px; font-size: 14px; }
+        .kurum-kart { background: #0f172a; padding: 20px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #10b981; border-bottom: 1px solid #334155; transition: 0.2s; }
+        .kurum-kart:hover { background: #162238; }
+        .kurum-kart.pasif { border-left-color: #ef4444; opacity: 0.7; }
+        .kurum-bilgi strong { font-size: 22px; color: #fff; display: block; margin-bottom: 12px; }
+        .kurum-bilgi span { display: inline-block; background: #1e293b; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #94a3b8; margin-right: 10px; border: 1px solid #334155; }
+        .durum-etiket { font-weight: bold; }
         .aksiyon-btnler { display: flex; gap: 10px; }
-        .btn-kucuk { padding: 8px 12px; font-size: 12px; width: auto; }
+        .btn-kucuk { padding: 10px 15px; font-size: 13px; width: auto; border-radius: 6px; }
+
+        .footer-logo { text-align: center; margin-top: 50px; opacity: 0.9; }
+        .footer-logo img { height: 40px; }
     </style>
 </head>
 <body>
 
-    <div class=\"header\">
+    <div class="header">
         <h1>⚡ TAZZY CLOUD MASTER ⚡</h1>
-        <p style=\"color: #aaa; margin: 5px 0 0 0;\">Multi-Tenant Lisans ve Müşteri Yönetim Merkezi</p>
+        <p>Multi-Tenant Lisans ve Müşteri Yönetim Merkezi</p>
     </div>
 
-    <div class=\"container\">
-        <div class=\"panel\" style=\"flex: 0.6;\">
+    <div class="container">
+        <!-- SOL PANEL: Kurum Ekleme Formu -->
+        <div class="panel form-panel">
             <h2>➕ Yeni Kurum Lisansı Aç</h2>
-            <label>Kurum Kodu (Kullanıcı Adı):</label>
-            <input type=\"text\" id=\"k_kodu\" placeholder=\"Örn: CAFE-BOSPHORUS\">
             
-            <label>Kurum Yönetici Şifresi:</label>
-            <input type=\"text\" id=\"k_sifre\" placeholder=\"Örn: cafe1234\">
+            <div class="form-group">
+                <label>Kurum Kodu (Kullanıcı Adı):</label>
+                <input type="text" id="k_kodu" placeholder="Örn: CAFE-BOSPHORUS">
+            </div>
             
-            <label>Lisans Bitiş Tarihi:</label>
-            <input type=\"date\" id=\"k_bitis\">
+            <div class="form-group">
+                <label>Kurum Yönetici Şifresi:</label>
+                <input type="text" id="k_sifre" placeholder="Örn: cafe1234">
+            </div>
             
-            <label style=\"display:flex; align-items:center; gap:10px; margin-bottom:20px; cursor:pointer;\">
-                <input type=\"checkbox\" id=\"k_aktif\" checked style=\"width:20px; height:20px; margin:0;\">
-                Kurum Şu An Aktif Mi?
+            <div class="form-group">
+                <label>Lisans Bitiş Tarihi:</label>
+                <input type="date" id="k_bitis">
+            </div>
+            
+            <label class="checkbox-kutu">
+                <input type="checkbox" id="k_aktif" checked>
+                <span>Kurum Şu An Aktif Mi?</span>
             </label>
 
-            <button onclick=\"kurumKaydet()\">Lisansı Kaydet / Güncelle</button>
+            <button onclick="kurumKaydet()">💾 Lisansı Kaydet / Güncelle</button>
         </div>
 
-        <div class=\"panel\">
+        <!-- SAĞ PANEL: Mevcut Kurumlar Listesi -->
+        <div class="panel list-panel">
             <h2>🏢 Aktif / Pasif Müşteriler</h2>
-            <div id=\"kurumlarListesi\"></div>
+            <div id="kurumlarListesi"></div>
         </div>
     </div>
 
-    <div style=\"text-align: center; margin-top: 50px;\">
-        <img src=\"Tazzy Beyaz.png\" alt=\"Tazzy\" style=\"height: 40px; opacity: 0.5;\">
+    <div class="footer-logo">
+        <!-- Tırnak işaretleri düzeltildi, logo artık kusursuz görünecek -->
+        <img src="Tazzy Beyaz.png" alt="Tazzy">
     </div>
 
-    <script src=\"/socket.io/socket.io.js\"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         
-        // Sayfa açıldığında verileri iste
         socket.emit('master_veri_istek');
 
         socket.on('master_veriler', (kurumlar) => {
             const liste = document.getElementById('kurumlarListesi');
-            liste.innerHTML = \"\";
+            liste.innerHTML = "";
             
             const bugun = new Date();
 
@@ -83,22 +112,22 @@
                 const bitisTarihi = new Date(k.bitis);
                 const lisansBittiMi = bugun > bitisTarihi;
                 
-                let durumMetni = \"\";
-                if(!k.aktif) durumMetni = \"<span style='color:#e21b3c;'>Durum: Askıya Alınmış</span>\";
-                else if(lisansBittiMi) durumMetni = \"<span style='color:#e21b3c;'>Durum: Lisans Süresi Dolmuş!</span>\";
-                else durumMetni = \"<span style='color:#2ecc71;'>Durum: Aktif & Yayında</span>\";
+                let durumMetni = "";
+                if(!k.aktif) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Durum: Askıya Alınmış</span>";
+                else if(lisansBittiMi) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Durum: Lisans Süresi Dolmuş!</span>";
+                else durumMetni = "<span class='durum-etiket' style='color:#10b981; border-color:#10b981;'>Durum: Aktif & Yayında</span>";
 
                 liste.innerHTML += `
-                    <div class=\"kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}\">
-                        <div class=\"kurum-bilgi\">
+                    <div class="kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}">
+                        <div class="kurum-bilgi">
                             <strong>${kodu}</strong>
                             <span>🔑 Şifre: ${k.sifre}</span>
                             <span>📅 Bitiş: ${k.bitis}</span>
                             ${durumMetni}
                         </div>
-                        <div class=\"aksiyon-btnler\">
-                            <button class=\"btn-kucuk\" style=\"background:#d89e00;\" onclick=\"duzenle('${kodu}', '${k.sifre}', '${k.bitis}', ${k.aktif})\">Düzenle</button>
-                            <button class=\"btn-kucuk btn-kirmizi\" onclick=\"kurumSil('${kodu}')\">Sil</button>
+                        <div class="aksiyon-btnler">
+                            <button class="btn-kucuk btn-sari" onclick="duzenle('${kodu}', '${k.sifre}', '${k.bitis}', ${k.aktif})">Düzenle</button>
+                            <button class="btn-kucuk btn-kirmizi" onclick="kurumSil('${kodu}')">Sil</button>
                         </div>
                     </div>
                 `;
@@ -112,16 +141,15 @@
             const aktif = document.getElementById('k_aktif').checked;
 
             if(!kodu || !sifre || !bitis) {
-                alert(\"Lütfen kod, şifre ve bitiş tarihini boş bırakmayın.\");
+                alert("Lütfen kod, şifre ve bitiş tarihini boş bırakmayın.");
                 return;
             }
 
             socket.emit('master_kurum_ekle_guncelle', { kodu, sifre, bitis, aktif });
             
-            // Formu temizle
-            document.getElementById('k_kodu').value = \"\";
-            document.getElementById('k_sifre').value = \"\";
-            document.getElementById('k_bitis').value = \"\";
+            document.getElementById('k_kodu').value = "";
+            document.getElementById('k_sifre').value = "";
+            document.getElementById('k_bitis').value = "";
         }
 
         function duzenle(kodu, sifre, bitis, aktif) {
