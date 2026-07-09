@@ -32,7 +32,6 @@
         .harf-ikon { width: 40px; height: 40px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
         .cevap-metni { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 
-        /* YENİ: Skor ve Podyum Ekranları CSS */
         #skorBord { background: white; color: #333; width: 90%; max-width: 400px; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); margin: 30px auto; }
         #skorListesi { list-style: none; padding: 0; margin: 0; }
         #skorListesi li { padding: 12px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; }
@@ -66,7 +65,6 @@
         </div>
     </div>
 
-    <!-- OYUN ALANI -->
     <div id="oyunAlani" class="gizli">
         <div id="bilgiBar">⏳ <span id="sureMetni">0</span> saniye</div>
         <h3 id="soruBaslik">Sıradaki soru bekleniyor...</h3>
@@ -82,19 +80,16 @@
         <div id="mesajAlani" class="gizli" style="font-size: 20px; font-weight: bold; margin-top: 50px;"></div>
     </div>
 
-    <!-- SKOR TABLOSU -->
     <div id="skorBord" class="gizli">
         <h3 style="text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0;">🏆 PUAN DURUMU</h3>
         <ul id="skorListesi"></ul>
     </div>
 
-    <!-- PODYUM EKRANI -->
     <div id="podyumEkrani" class="gizli">
         <div class="kupa">🏆</div><h2 style="font-size: 28px; margin: 0;">YARIŞMA BİTTİ!</h2>
         <div id="kazananlarListesi"></div>
     </div>
 
-    <!-- TAZZY İMZA ALANI -->
     <div style="padding: 10px; text-align: center; font-size: 11px; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; background: #f2f2f2; letter-spacing: 1px;">
         <span>DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 18px; opacity: 0.8;">
@@ -106,7 +101,10 @@
         let html5QrcodeScanner;
         let urlPin = null;
         
-        // SES EFEKTLERİ İÇİN ALTYAPI
+        // Telefon kopmalarında odaya tekrar sızması için hafıza
+        let sonKullaniciAd = null;
+        let sonKullaniciPin = null;
+
         const sesContext = new (window.AudioContext || window.webkitAudioContext)();
         const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
         let sesAktif = false;
@@ -123,13 +121,7 @@
         function bitisSesi() { if (!sesAktif) return; const osc = sesContext.createOscillator(); const gain = sesContext.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, sesContext.currentTime); gain.gain.setValueAtTime(0.2, sesContext.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, sesContext.currentTime + 0.5); osc.connect(gain); gain.connect(sesContext.destination); osc.start(); osc.stop(sesContext.currentTime + 0.5); }
         function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
 
-        function tumEkranlariGizle() {
-            document.getElementById('girisAlani').classList.add('gizli');
-            document.getElementById('oyunAlani').classList.add('gizli');
-            document.getElementById('skorBord').classList.add('gizli');
-            document.getElementById('podyumEkrani').classList.add('gizli');
-            alkisSesi.pause(); alkisSesi.currentTime = 0;
-        }
+        function tumEkranlariGizle() { document.getElementById('girisAlani').classList.add('gizli'); document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('skorBord').classList.add('gizli'); document.getElementById('podyumEkrani').classList.add('gizli'); alkisSesi.pause(); alkisSesi.currentTime = 0; }
 
         function acScanner() { document.getElementById('kameraAlan').classList.remove('gizli'); html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false); html5QrcodeScanner.render(onScanSuccess, onScanFailure); }
         function kapatScanner() { if(html5QrcodeScanner) html5QrcodeScanner.clear(); document.getElementById('kameraAlan').classList.add('gizli'); }
@@ -146,12 +138,21 @@
             const isim = document.getElementById('isimInput').value.trim();
             const pin = document.getElementById('pinInput').value.trim();
             
-            // Telefonun ses motorunu başlatmak için kullanıcı tıklamasını kullanıyoruz
             sesAktif = true; if(sesContext.state === 'suspended') sesContext.resume();
             alkisSesi.volume = 0; alkisSesi.play().then(() => { alkisSesi.pause(); alkisSesi.currentTime = 0; alkisSesi.volume = 1; }).catch(e => console.log(e));
 
-            if(isim && pin) { socket.emit('oyuncu_katil', { isim: isim, pin: pin }); } 
+            if(isim && pin) { 
+                sonKullaniciAd = isim; sonKullaniciPin = pin;
+                socket.emit('oyuncu_katil', { isim: isim, pin: pin }); 
+            } 
             else { alert("Lütfen adınızı ve oyun PIN'ini girin."); }
+        });
+
+        // Telefonun interneti koparsa otomatik odaya geri al!
+        socket.on('connect', () => {
+            if(sonKullaniciAd && sonKullaniciPin) {
+                socket.emit('oyuncu_katil', { isim: sonKullaniciAd, pin: sonKullaniciPin });
+            }
         });
 
         socket.on('katilma_basarili', () => { tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); gosterMesaj("✅ Bağlandın! Ekrana bak... 👀"); });
