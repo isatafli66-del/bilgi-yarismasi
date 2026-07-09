@@ -20,22 +20,43 @@ app.use(express.static('public'));
 
 // --- VERİ SAKLAMA KATMANI ---
 // Render Free ortamında dosya sistemi kalıcı değildir. Bu yüzden ana kayıt yeri Supabase'tir.
-// Supabase ayarı eksikse sistem dosya tabanlı yedek moda geçebilir; bu mod Render Free'de kalıcı değildir.
-let supabase = null;
-if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-        const { createClient } = require('@supabase/supabase-js');
-        supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-            auth: { persistSession: false, autoRefreshToken: false }
-        });
-        console.log('[BILGI] Supabase bağlantısı hazır. Veriler Supabase app_data tablosunda saklanacak.');
-    } catch (error) {
-        console.error('[HATA] @supabase/supabase-js paketi yüklenemedi:', error.message);
-    }
+// Bu sürüm @supabase/supabase-js paketini kullanmaz; Node 18'de çalışan Supabase REST API kullanır.
+const supabaseHazir = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+
+if (STORAGE_PROVIDER === 'supabase' && !supabaseHazir) {
+    throw new Error('STORAGE_PROVIDER=supabase seçili fakat SUPABASE_URL veya SUPABASE_SERVICE_ROLE_KEY eksik. Render > Environment bölümünü kontrol edin.');
 }
 
-if (STORAGE_PROVIDER === 'supabase' && !supabase) {
-    throw new Error('STORAGE_PROVIDER=supabase seçili fakat SUPABASE_URL veya SUPABASE_SERVICE_ROLE_KEY eksik. Render > Environment bölümünü kontrol edin.');
+if (STORAGE_PROVIDER === 'supabase' && supabaseHazir) {
+    console.log('[BILGI] Supabase REST bağlantısı hazır. Veriler Supabase app_data tablosunda saklanacak.');
+}
+
+function supabaseBaseUrl() {
+    return SUPABASE_URL.replace(/\/+$/, '');
+}
+
+function supabaseHeaders(extra = {}) {
+    return {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        ...extra
+    };
+}
+
+async function supabaseJsonFetch(url, options = {}) {
+    const response = await fetch(url, options);
+    const bodyText = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`Supabase HTTP ${response.status}: ${bodyText || response.statusText}`);
+    }
+
+    if (!bodyText) return null;
+    try {
+        return JSON.parse(bodyText);
+    } catch (error) {
+        throw new Error(`Supabase JSON parse hatası: ${error.message}`);
+    }
 }
 
 function klasorYazilabilirMi(klasor) {
@@ -81,22 +102,22 @@ async function getAppData(key, varsayilanDeger) {
     const varsayilan = derinKopya(varsayilanDeger);
 
     if (STORAGE_PROVIDER === 'supabase') {
-        const { data, error } = await supabase
-            .from(APP_DATA_TABLE)
-            .select('value')
-            .eq('key', key)
-            .maybeSingle();
+        const url = new URL(`${supabaseBaseUrl()}/rest/v1/${APP_DATA_TABLE}`);
+        url.searchParams.set('key', `eq.${key}`);
+        url.searchParams.set('select', 'value');
+        url.searchParams.set('limit', '1');
 
-        if (error) {
-            throw new Error(`Supabase okuma hatası (${key}): ${error.message}`);
-        }
+        const rows = await supabaseJsonFetch(url.toString(), {
+            method: 'GET',
+            headers: supabaseHeaders({ Accept: 'application/json' })
+        });
 
-        if (!data) {
+        if (!Array.isArray(rows) || rows.length === 0) {
             await setAppData(key, varsayilan);
             return varsayilan;
         }
 
-        return data.value ?? varsayilan;
+        return rows[0].value ?? varsayilan;
     }
 
     const dosya = path.join(FILE_DATA_DIR, keyDosyaAdi(key));
@@ -117,13 +138,22 @@ async function setAppData(key, value) {
     const temizValue = derinKopya(value);
 
     if (STORAGE_PROVIDER === 'supabase') {
-        const { error } = await supabase
-            .from(APP_DATA_TABLE)
-            .upsert({ key, value: temizValue, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        const url = new URL(`${supabaseBaseUrl()}/rest/v1/${APP_DATA_TABLE}`);
+        url.searchParams.set('on_conflict', 'key');
 
-        if (error) {
-            throw new Error(`Supabase kayıt hatası (${key}): ${error.message}`);
-        }
+        await supabaseJsonFetch(url.toString(), {
+            method: 'POST',
+            headers: supabaseHeaders({
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+            }),
+            body: JSON.stringify({
+                key,
+                value: temizValue,
+                updated_at: new Date().toISOString()
+            })
+        });
         return;
     }
 
@@ -133,8 +163,16 @@ async function setAppData(key, value) {
 
 async function deleteAppData(key) {
     if (STORAGE_PROVIDER === 'supabase') {
-        const { error } = await supabase.from(APP_DATA_TABLE).delete().eq('key', key);
-        if (error) throw new Error(`Supabase silme hatası (${key}): ${error.message}`);
+        const url = new URL(`${supabaseBaseUrl()}/rest/v1/${APP_DATA_TABLE}`);
+        url.searchParams.set('key', `eq.${key}`);
+
+        await supabaseJsonFetch(url.toString(), {
+            method: 'DELETE',
+            headers: supabaseHeaders({
+                Accept: 'application/json',
+                Prefer: 'return=minimal'
+            })
+        });
         return;
     }
 
