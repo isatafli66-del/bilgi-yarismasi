@@ -38,3 +38,7 @@ Start Command: npm start
 5. Yeni kurum oluştur.
 6. Render'da Manual Deploy > Deploy latest commit yap.
 7. Kurum hâlâ duruyorsa Supabase kaydı çalışıyor demektir.
+
+
+## NPM Build Hatası Notu
+Bu pakette `package-lock.json` içindeki paket kaynakları public `https://registry.npmjs.org/` adresine göre düzeltilmiştir. Render build sırasında `packages.applied-caas-gateway...` veya `ETIMEDOUT` hatası alırsanız GitHub'daki eski `package-lock.json` dosyasının tamamen değiştiğinden emin olun.
