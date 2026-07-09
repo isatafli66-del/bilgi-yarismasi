@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yarışmaya Katıl! | Tazzy V2</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow-x: hidden;}
         .gizli { display: none !important; }
         
         #girisAlani { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #46178f; color: white; padding: 20px; }
         .logo { font-size: 40px; font-weight: bold; margin-bottom: 20px; }
-        
         .giris-kutu { display: flex; flex-direction: column; width: 90%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
         input { padding: 15px; font-size: 20px; border-radius: 4px; border: none; text-align: center; font-weight: bold; outline: none; box-sizing: border-box; width: 100%; }
-        
         .satir-yatay { display: flex; gap: 10px; width: 100%; }
         .katil-btn { background: #26890c; color: white; border: none; padding: 15px; font-size: 20px; font-weight: bold; border-radius: 4px; width: 100%; cursor: pointer; box-shadow: 0 4px 0 #185a07; }
         .qr-btn { background: #333; color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40%; }
@@ -23,7 +22,7 @@
         #reader { width: 100%; }
         
         #oyunAlani { flex: 1; display: flex; flex-direction: column; background: #f2f2f2; padding: 10px; }
-        #bilgiBar { background: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #bilgiBar { background: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s; }
         #soruBaslik { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
         #soruResmi { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; }
         
@@ -32,6 +31,16 @@
         .btn-a { background: #e21b3c; } .btn-b { background: #1368ce; } .btn-c { background: #d89e00; } .btn-d { background: #26890c; }
         .harf-ikon { width: 40px; height: 40px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
         .cevap-metni { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+
+        /* YENİ: Skor ve Podyum Ekranları CSS */
+        #skorBord { background: white; color: #333; width: 90%; max-width: 400px; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); margin: 30px auto; }
+        #skorListesi { list-style: none; padding: 0; margin: 0; }
+        #skorListesi li { padding: 12px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; }
+        
+        #podyumEkrani { text-align: center; margin: 30px auto; width: 90%; max-width: 400px; }
+        .kupa { font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-20px);} 60% {transform: translateY(-10px);} }
+        #kazananlarListesi { font-size: 20px; font-weight: bold; margin-top: 20px; background: white; color: #333; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -49,31 +58,43 @@
 
         <div class="giris-kutu">
             <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
-            
             <div class="satir-yatay" id="pinKutusu">
                 <input type="number" id="pinInput" placeholder="Oyun PIN (6 Hane)" style="width: 60%;">
                 <button class="qr-btn" onclick="acScanner()">📷 QR Okut</button>
             </div>
-
             <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
         </div>
     </div>
 
+    <!-- OYUN ALANI -->
     <div id="oyunAlani" class="gizli">
         <div id="bilgiBar">⏳ <span id="sureMetni">0</span> saniye</div>
         <h3 id="soruBaslik">Sıradaki soru bekleniyor...</h3>
         <img id="soruResmi" src="" class="gizli" alt="Görsel">
         
         <div id="cevapButonlari" class="cevap-grid gizli">
-            <button class="btn btn-a" onclick="cevapVer('A')"><div class="harf-ikon">A</div><span class="cevap-metni" id="txtA">A</span></button>
-            <button class="btn btn-b" onclick="cevapVer('B')"><div class="harf-ikon">B</div><span class="cevap-metni" id="txtB">B</span></button>
-            <button class="btn btn-c" onclick="cevapVer('C')"><div class="harf-ikon">C</div><span class="cevap-metni" id="txtC">C</span></button>
-            <button class="btn btn-d" onclick="cevapVer('D')"><div class="harf-ikon">D</div><span class="cevap-metni" id="txtD">D</span></button>
+            <button class="btn btn-a" onclick="cevapVer('A')"><div class="harf-ikon">A</div><span class="cevap-metni" id="txtA"></span></button>
+            <button class="btn btn-b" onclick="cevapVer('B')"><div class="harf-ikon">B</div><span class="cevap-metni" id="txtB"></span></button>
+            <button class="btn btn-c" onclick="cevapVer('C')"><div class="harf-ikon">C</div><span class="cevap-metni" id="txtC"></span></button>
+            <button class="btn btn-d" onclick="cevapVer('D')"><div class="harf-ikon">D</div><span class="cevap-metni" id="txtD"></span></button>
         </div>
 
         <div id="mesajAlani" class="gizli" style="font-size: 20px; font-weight: bold; margin-top: 50px;"></div>
     </div>
 
+    <!-- SKOR TABLOSU -->
+    <div id="skorBord" class="gizli">
+        <h3 style="text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0;">🏆 PUAN DURUMU</h3>
+        <ul id="skorListesi"></ul>
+    </div>
+
+    <!-- PODYUM EKRANI -->
+    <div id="podyumEkrani" class="gizli">
+        <div class="kupa">🏆</div><h2 style="font-size: 28px; margin: 0;">YARIŞMA BİTTİ!</h2>
+        <div id="kazananlarListesi"></div>
+    </div>
+
+    <!-- TAZZY İMZA ALANI -->
     <div style="padding: 10px; text-align: center; font-size: 11px; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; background: #f2f2f2; letter-spacing: 1px;">
         <span>DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 18px; opacity: 0.8;">
@@ -84,42 +105,37 @@
         const socket = io();
         let html5QrcodeScanner;
         let urlPin = null;
+        
+        // SES EFEKTLERİ İÇİN ALTYAPI
+        const sesContext = new (window.AudioContext || window.webkitAudioContext)();
+        const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
+        let sesAktif = false;
 
-        // --- URL'DEN AKILLI PIN YAKALAMA ---
         const urlParams = new URLSearchParams(window.location.search);
         if(urlParams.get('pin')) {
             urlPin = urlParams.get('pin');
             document.getElementById('pinInput').value = urlPin;
-            document.getElementById('pinKutusu').style.display = 'none'; // PIN kutusunu gizle
+            document.getElementById('pinKutusu').style.display = 'none';
         }
 
-        // --- QR OKUYUCU FONKSİYONLARI ---
-        function acScanner() {
-            document.getElementById('kameraAlan').classList.remove('gizli');
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        // --- SES FONKSİYONLARI ---
+        function tickSesi(frekans = 800) { if (!sesAktif) return; const osc = sesContext.createOscillator(); const gain = sesContext.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(frekans, sesContext.currentTime); gain.gain.setValueAtTime(0.1, sesContext.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, sesContext.currentTime + 0.1); osc.connect(gain); gain.connect(sesContext.destination); osc.start(); osc.stop(sesContext.currentTime + 0.1); }
+        function bitisSesi() { if (!sesAktif) return; const osc = sesContext.createOscillator(); const gain = sesContext.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, sesContext.currentTime); gain.gain.setValueAtTime(0.2, sesContext.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, sesContext.currentTime + 0.5); osc.connect(gain); gain.connect(sesContext.destination); osc.start(); osc.stop(sesContext.currentTime + 0.5); }
+        function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
+
+        function tumEkranlariGizle() {
+            document.getElementById('girisAlani').classList.add('gizli');
+            document.getElementById('oyunAlani').classList.add('gizli');
+            document.getElementById('skorBord').classList.add('gizli');
+            document.getElementById('podyumEkrani').classList.add('gizli');
+            alkisSesi.pause(); alkisSesi.currentTime = 0;
         }
 
-        function kapatScanner() {
-            if(html5QrcodeScanner) html5QrcodeScanner.clear();
-            document.getElementById('kameraAlan').classList.add('gizli');
-        }
+        function acScanner() { document.getElementById('kameraAlan').classList.remove('gizli'); html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false); html5QrcodeScanner.render(onScanSuccess, onScanFailure); }
+        function kapatScanner() { if(html5QrcodeScanner) html5QrcodeScanner.clear(); document.getElementById('kameraAlan').classList.add('gizli'); }
+        function onScanSuccess(decodedText) { try { let url = new URL(decodedText); let scannedPin = url.searchParams.get('pin'); if(scannedPin) { document.getElementById('pinInput').value = scannedPin; document.getElementById('pinKutusu').style.display = 'none'; kapatScanner(); alert("✅ QR Kod Okundu! Adınızı girip katılabilirsiniz."); } } catch(e) {} }
+        function onScanFailure(error) {}
 
-        function onScanSuccess(decodedText) {
-            try {
-                let url = new URL(decodedText);
-                let scannedPin = url.searchParams.get('pin');
-                if(scannedPin) {
-                    document.getElementById('pinInput').value = scannedPin;
-                    document.getElementById('pinKutusu').style.display = 'none';
-                    kapatScanner();
-                    alert("✅ QR Kod Başarıyla Okundu! Adınızı girip oyuna katılabilirsiniz.");
-                } else { alert("Geçersiz QR Kod!"); }
-            } catch(e) { alert("Geçersiz QR Formatı!"); }
-        }
-        function onScanFailure(error) { /* Sessizce devam et */ }
-
-        // --- SOKET VE OYUN AKIŞI ---
         socket.on('ayarlar_guncelle', (ayarlar) => {
             const globalLogo = document.getElementById('globalMobilLogo');
             if(ayarlar.logo) { globalLogo.src = ayarlar.logo; globalLogo.classList.remove('gizli'); } 
@@ -130,48 +146,57 @@
             const isim = document.getElementById('isimInput').value.trim();
             const pin = document.getElementById('pinInput').value.trim();
             
-            if(isim && pin) {
-                socket.emit('oyuncu_katil', { isim: isim, pin: pin });
-            } else {
-                alert("Lütfen adınızı ve oyun PIN'ini girin.");
-            }
+            // Telefonun ses motorunu başlatmak için kullanıcı tıklamasını kullanıyoruz
+            sesAktif = true; if(sesContext.state === 'suspended') sesContext.resume();
+            alkisSesi.volume = 0; alkisSesi.play().then(() => { alkisSesi.pause(); alkisSesi.currentTime = 0; alkisSesi.volume = 1; }).catch(e => console.log(e));
+
+            if(isim && pin) { socket.emit('oyuncu_katil', { isim: isim, pin: pin }); } 
+            else { alert("Lütfen adınızı ve oyun PIN'ini girin."); }
         });
 
-        socket.on('katilma_basarili', () => {
-            document.getElementById('girisAlani').classList.add('gizli');
-            document.getElementById('oyunAlani').classList.remove('gizli');
-            gosterMesaj("✅ Bağlandın! Ekrana bak... 👀");
-        });
+        socket.on('katilma_basarili', () => { tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); gosterMesaj("✅ Bağlandın! Ekrana bak... 👀"); });
+        socket.on('katilma_hatasi', (hataMsg) => { alert("❌ " + hataMsg); if(!urlPin) document.getElementById('pinInput').value = ""; });
 
-        socket.on('katilma_hatasi', (hataMsg) => {
-            alert("❌ Bağlantı Hatası: " + hataMsg + "\nLütfen doğru yarışma PIN'ini girdiğinizden emin olun.");
-            if(!urlPin) document.getElementById('pinInput').value = "";
-        });
-
-        function gosterMesaj(metin) {
-            document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli');
-            const msg = document.getElementById('mesajAlani'); msg.innerText = metin; msg.classList.remove('gizli');
-        }
+        function gosterMesaj(metin) { document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli'); const msg = document.getElementById('mesajAlani'); msg.innerText = metin; msg.classList.remove('gizli'); document.getElementById('bilgiBar').style.background = 'white'; document.getElementById('bilgiBar').style.color = 'black'; }
 
         socket.on('yeni_soru', (gelenSoru) => {
-            document.getElementById('mesajAlani').classList.add('gizli');
+            tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('mesajAlani').classList.add('gizli');
+            document.getElementById('bilgiBar').style.background = 'white'; document.getElementById('bilgiBar').style.color = 'black';
             document.getElementById('soruBaslik').innerText = gelenSoru.soru;
-            const resim = document.getElementById('soruResmi');
-            if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
+            const resim = document.getElementById('soruResmi'); if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
             document.getElementById('txtA').innerText = gelenSoru.secenekler.A; document.getElementById('txtB').innerText = gelenSoru.secenekler.B; document.getElementById('txtC').innerText = gelenSoru.secenekler.C; document.getElementById('txtD').innerText = gelenSoru.secenekler.D;
             document.getElementById('cevapButonlari').classList.remove('gizli');
         });
 
-        socket.on('zaman_guncelle', (kalanSaniye) => { document.getElementById('sureMetni').innerText = kalanSaniye; });
-        socket.on('sure_bitti', () => { gosterMesaj("Süre Doldu! Diğer soruyu bekleyin... ⏳"); });
-        socket.on('skor_tablosunu_goster', () => { gosterMesaj("Puan durumu ekranda! 👀"); });
-        socket.on('quiz_bitti_bekle', () => { gosterMesaj("Yarışma tamamlandı! Sonuçlar ekrana yansıtılacak... 🎊"); });
-        socket.on('quiz_bitti_final', () => { gosterMesaj("🏆 Yarışma Bitti! Kazananlar ekranda!"); });
+        socket.on('zaman_guncelle', (kalanSaniye) => { 
+            document.getElementById('sureMetni').innerText = kalanSaniye; 
+            if (kalanSaniye > 0 && !document.getElementById('oyunAlani').classList.contains('gizli') && !document.getElementById('cevapButonlari').classList.contains('gizli')) {
+                if (kalanSaniye <= 3) { document.getElementById('bilgiBar').style.background = '#e21b3c'; document.getElementById('bilgiBar').style.color = 'white'; tickSesi(1200); } else { tickSesi(800); }
+            }
+        });
 
-        function cevapVer(secenek) {
-            socket.emit('cevap_gonder', secenek);
-            gosterMesaj("Cevabın alındı! Bekleniyor...");
-        }
+        socket.on('sure_bitti', () => { bitisSesi(); gosterMesaj("Süre Doldu! Diğer soruyu bekleyin... ⏳"); });
+
+        socket.on('puan_guncelle', (oyuncular) => {
+            const liste = document.getElementById('skorListesi'); liste.innerHTML = "";
+            oyuncular.sort((a, b) => b.puan - a.puan);
+            oyuncular.slice(0, 5).forEach((oyuncu) => { liste.innerHTML += `<li><span>👤 ${oyuncu.isim}</span> <span style="color:#26890c;">${oyuncu.puan} Puan</span></li>`; });
+        });
+
+        socket.on('skor_tablosunu_goster', () => { tumEkranlariGizle(); document.getElementById('skorBord').classList.remove('gizli'); document.body.style.background = '#f2f2f2'; });
+        socket.on('quiz_bitti_bekle', () => { tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); gosterMesaj("Yarışma tamamlandı! Sonuçlar ekrana yansıtılacak... 🎊"); });
+
+        socket.on('quiz_bitti_final', (oyuncular) => {
+            tumEkranlariGizle(); document.getElementById('podyumEkrani').classList.remove('gizli');
+            if(sesAktif) alkisSesi.play(); konfetiPatlat();
+            oyuncular.sort((a, b) => b.puan - a.puan);
+            const kazananlarDiv = document.getElementById('kazananlarListesi'); kazananlarDiv.innerHTML = "";
+            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style=\"font-size: 26px; color:#d89e00; margin-bottom:10px;\">🥇 1. ${oyuncular[0].isim}<br><small>${oyuncular[0].puan} Puan</small></div>`;
+            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style=\"font-size: 20px; color:#7f8c8d; margin-bottom:10px;\">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan})</div>`;
+            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style=\"font-size: 18px; color:#cd7f32;\">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan})</div>`;
+        });
+
+        function cevapVer(secenek) { socket.emit('cevap_gonder', secenek); gosterMesaj("Cevabın alındı! Bekleniyor..."); }
     </script>
 </body>
 </html>
