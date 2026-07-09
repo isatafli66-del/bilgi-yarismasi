@@ -3,15 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Yarışmaya Katıl!</title>
+    <title>Yarışmaya Katıl! | Tazzy V2</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; display: flex; flex-direction: column; }
         .gizli { display: none !important; }
         
         #girisAlani { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #46178f; color: white; padding: 20px; }
         .logo { font-size: 40px; font-weight: bold; margin-bottom: 20px; }
-        input { padding: 15px; font-size: 20px; width: 90%; max-width: 400px; margin-bottom: 15px; border-radius: 4px; border: none; text-align: center; font-weight: bold; outline: none; }
-        .katil-btn { background: #333; color: white; border: none; padding: 15px; font-size: 20px; font-weight: bold; border-radius: 4px; width: 90%; max-width: 400px; cursor: pointer; box-shadow: 0 4px 0 #111; }
+        
+        .giris-kutu { display: flex; flex-direction: column; width: 90%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
+        input { padding: 15px; font-size: 20px; border-radius: 4px; border: none; text-align: center; font-weight: bold; outline: none; box-sizing: border-box; width: 100%; }
+        
+        .satir-yatay { display: flex; gap: 10px; width: 100%; }
+        .katil-btn { background: #26890c; color: white; border: none; padding: 15px; font-size: 20px; font-weight: bold; border-radius: 4px; width: 100%; cursor: pointer; box-shadow: 0 4px 0 #185a07; }
+        .qr-btn { background: #333; color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40%; }
+        
+        #kameraAlan { background: white; padding: 10px; border-radius: 8px; margin-bottom: 15px; width: 90%; max-width: 400px; color: #333; }
+        #reader { width: 100%; }
         
         #oyunAlani { flex: 1; display: flex; flex-direction: column; background: #f2f2f2; padding: 10px; }
         #bilgiBar { background: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -21,7 +30,6 @@
         .cevap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; margin-bottom: 10px; }
         .btn { border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; gap: 10px; }
         .btn-a { background: #e21b3c; } .btn-b { background: #1368ce; } .btn-c { background: #d89e00; } .btn-d { background: #26890c; }
-        
         .harf-ikon { width: 40px; height: 40px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
         .cevap-metni { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
     </style>
@@ -32,8 +40,23 @@
 
     <div id="girisAlani">
         <div class="logo">Bilgi Yarışması</div>
-        <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
-        <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
+        
+        <div id="kameraAlan" class="gizli">
+            <h4 style="margin: 0 0 10px 0;">Kamerayı Dev Ekrana Tutun</h4>
+            <div id="reader"></div>
+            <button onclick="kapatScanner()" style="background: #e21b3c; color: white; border: none; padding: 10px; width: 100%; border-radius: 4px; margin-top: 10px; font-weight:bold;">İptal Et</button>
+        </div>
+
+        <div class="giris-kutu">
+            <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
+            
+            <div class="satir-yatay" id="pinKutusu">
+                <input type="number" id="pinInput" placeholder="Oyun PIN (6 Hane)" style="width: 60%;">
+                <button class="qr-btn" onclick="acScanner()">📷 QR Okut</button>
+            </div>
+
+            <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
+        </div>
     </div>
 
     <div id="oyunAlani" class="gizli">
@@ -51,7 +74,6 @@
         <div id="mesajAlani" class="gizli" style="font-size: 20px; font-weight: bold; margin-top: 50px;"></div>
     </div>
 
-    <!-- TAZZY İMZA ALANI (Ekranın en altı) -->
     <div style="padding: 10px; text-align: center; font-size: 11px; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; background: #f2f2f2; letter-spacing: 1px;">
         <span>DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 18px; opacity: 0.8;">
@@ -60,8 +82,44 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        
-        // --- GLOBAL LOGO YÖNETİMİ ---
+        let html5QrcodeScanner;
+        let urlPin = null;
+
+        // --- URL'DEN AKILLI PIN YAKALAMA ---
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.get('pin')) {
+            urlPin = urlParams.get('pin');
+            document.getElementById('pinInput').value = urlPin;
+            document.getElementById('pinKutusu').style.display = 'none'; // PIN kutusunu gizle
+        }
+
+        // --- QR OKUYUCU FONKSİYONLARI ---
+        function acScanner() {
+            document.getElementById('kameraAlan').classList.remove('gizli');
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
+
+        function kapatScanner() {
+            if(html5QrcodeScanner) html5QrcodeScanner.clear();
+            document.getElementById('kameraAlan').classList.add('gizli');
+        }
+
+        function onScanSuccess(decodedText) {
+            try {
+                let url = new URL(decodedText);
+                let scannedPin = url.searchParams.get('pin');
+                if(scannedPin) {
+                    document.getElementById('pinInput').value = scannedPin;
+                    document.getElementById('pinKutusu').style.display = 'none';
+                    kapatScanner();
+                    alert("✅ QR Kod Başarıyla Okundu! Adınızı girip oyuna katılabilirsiniz.");
+                } else { alert("Geçersiz QR Kod!"); }
+            } catch(e) { alert("Geçersiz QR Formatı!"); }
+        }
+        function onScanFailure(error) { /* Sessizce devam et */ }
+
+        // --- SOKET VE OYUN AKIŞI ---
         socket.on('ayarlar_guncelle', (ayarlar) => {
             const globalLogo = document.getElementById('globalMobilLogo');
             if(ayarlar.logo) { globalLogo.src = ayarlar.logo; globalLogo.classList.remove('gizli'); } 
@@ -70,15 +128,25 @@
         
         document.getElementById('katilBtn').addEventListener('click', () => {
             const isim = document.getElementById('isimInput').value.trim();
-            if(isim) {
-                socket.emit('yeni_oyuncu', isim);
-                document.getElementById('girisAlani').classList.add('gizli');
-                document.getElementById('oyunAlani').classList.remove('gizli');
-                gosterMesaj("Bağlandın! Ekrana bak... 👀");
+            const pin = document.getElementById('pinInput').value.trim();
+            
+            if(isim && pin) {
+                socket.emit('oyuncu_katil', { isim: isim, pin: pin });
+            } else {
+                alert("Lütfen adınızı ve oyun PIN'ini girin.");
             }
         });
 
-        socket.on('yeni_oyun_basladi', () => { document.getElementById('girisAlani').classList.remove('gizli'); document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('isimInput').value = ""; });
+        socket.on('katilma_basarili', () => {
+            document.getElementById('girisAlani').classList.add('gizli');
+            document.getElementById('oyunAlani').classList.remove('gizli');
+            gosterMesaj("✅ Bağlandın! Ekrana bak... 👀");
+        });
+
+        socket.on('katilma_hatasi', (hataMsg) => {
+            alert("❌ Bağlantı Hatası: " + hataMsg + "\nLütfen doğru yarışma PIN'ini girdiğinizden emin olun.");
+            if(!urlPin) document.getElementById('pinInput').value = "";
+        });
 
         function gosterMesaj(metin) {
             document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli');
