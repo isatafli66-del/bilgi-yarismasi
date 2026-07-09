@@ -134,15 +134,14 @@ io.on('connection', (socket) => {
    // --- YAPAY ZEKA ---
     socket.on('ai_soru_uret', async (istek) => {
         try {
-            // 1. API_KEY Kontrolü
             if (!API_KEY) {
                 throw new Error("Sunucuda API_KEY bulunamadı! Lütfen Render ayarlarını kontrol et.");
             }
 
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın. Konu: "${istek.konu}", Zorluk: "${istek.zorluk}", Sayı: ${istek.sayi}. Her soru için İNGİLİZCE çok kısa bir görsel betimlemesi (gorsel_prompt) yaz. Cevabını SADECE JSON formatında ver: [{"soru": "...", "gorsel_prompt": "...", "secenekler": {"A":"...","B":"...","C":"...","D":"..."}, "dogruCevap": "A"}]`;
             
-            // ÇÖZÜM BURADA: Model adını Google'ın en güncel ve tam adıyla (gemini-1.5-flash-latest) değiştirdik.
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+            // ÇÖZÜM: Tüm hesaplarda koşulsuz çalışan ana "gemini-pro" modeline geçtik.
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
             
             const response = await fetch(url, { 
                 method: 'POST', 
@@ -152,12 +151,11 @@ io.on('connection', (socket) => {
             
             const data = await response.json();
             
-            // Hata yakalama
             if (data.error) {
-                throw new Error("Google API Hatası: " + data.error.message);
+                throw new Error(data.error.message);
             }
             if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("Yapay zeka cevap veremedi.");
+                throw new Error("Yapay zeka cevap veremedi. (Güvenlik filtresine takılmış olabilir).");
             }
 
             let text = data.candidates[0].content.parts[0].text;
@@ -168,7 +166,7 @@ io.on('connection', (socket) => {
             socket.emit('ai_soru_sonuc', JSON.parse(text));
         } catch (error) { 
             console.error("AI Hatası:", error);
-            socket.emit('ai_hata', 'Detaylı Hata: ' + error.message); 
+            socket.emit('ai_hata', 'API Hatası: ' + error.message); 
         }
     });
     
