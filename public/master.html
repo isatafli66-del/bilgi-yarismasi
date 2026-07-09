@@ -20,13 +20,15 @@
         
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 14px; font-weight: 600; }
-        input[type="text"], input[type="date"] { width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 8px; box-sizing: border-box; background: #0f172a; color: white; font-size: 16px; transition: 0.3s; }
+        input[type="text"], input[type="date"], input[type="file"] { width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 8px; box-sizing: border-box; background: #0f172a; color: white; font-size: 16px; transition: 0.3s; }
         input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         
-        /* O garip duran 2 satırı kutu içine alıp hizaladık */
         .checkbox-kutu { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 25px; cursor: pointer; }
         .checkbox-kutu input { width: 24px; height: 24px; cursor: pointer; margin: 0; }
         .checkbox-kutu span { font-size: 16px; font-weight: bold; color: #e2e8f0; }
+
+        .logo-onizleme-kutu { text-align: center; margin-bottom: 15px; padding: 10px; background: #0f172a; border-radius: 8px; border: 1px dashed #334155; }
+        #k_logo_onizleme { max-height: 70px; border-radius: 4px; display: none; margin: 0 auto; }
 
         button { background: #3b82f6; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
         button:hover { background: #2563eb; transform: translateY(-2px); }
@@ -34,6 +36,7 @@
         .btn-kirmizi:hover { background: #dc2626; }
         .btn-sari { background: #f59e0b; color: #000; }
         .btn-sari:hover { background: #d97706; }
+        .btn-kucuk { padding: 10px 15px; font-size: 13px; width: auto; border-radius: 6px; }
         
         .kurum-kart { background: #0f172a; padding: 20px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #10b981; border-bottom: 1px solid #334155; transition: 0.2s; }
         .kurum-kart:hover { background: #162238; }
@@ -42,7 +45,6 @@
         .kurum-bilgi span { display: inline-block; background: #1e293b; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #94a3b8; margin-right: 10px; border: 1px solid #334155; }
         .durum-etiket { font-weight: bold; }
         .aksiyon-btnler { display: flex; gap: 10px; }
-        .btn-kucuk { padding: 10px 15px; font-size: 13px; width: auto; border-radius: 6px; }
 
         .footer-logo { text-align: center; margin-top: 50px; opacity: 0.9; }
         .footer-logo img { height: 40px; }
@@ -56,7 +58,7 @@
     </div>
 
     <div class="container">
-        <!-- SOL PANEL: Kurum Ekleme Formu -->
+        <!-- SOL PANEL -->
         <div class="panel form-panel">
             <h2>➕ Yeni Kurum Lisansı Aç</h2>
             
@@ -75,6 +77,16 @@
                 <input type="date" id="k_bitis">
             </div>
             
+            <div class="form-group">
+                <label>🏢 Kurum Logosu Yükle (İsteğe Bağlı):</label>
+                <div class="logo-onizleme-kutu">
+                    <img id="k_logo_onizleme" src="">
+                    <span id="logoYokMetin" style="color:#64748b; font-size:13px;">Seçili logo yok</span>
+                </div>
+                <input type="file" id="k_logo_input" accept="image/*">
+                <button onclick="logoyuTemizle()" class="btn-kirmizi" style="margin-top: 10px; padding: 8px; font-size: 13px;">Logoyu Kaldır</button>
+            </div>
+
             <label class="checkbox-kutu">
                 <input type="checkbox" id="k_aktif" checked>
                 <span>Kurum Şu An Aktif Mi?</span>
@@ -83,39 +95,57 @@
             <button onclick="kurumKaydet()">💾 Lisansı Kaydet / Güncelle</button>
         </div>
 
-        <!-- SAĞ PANEL: Mevcut Kurumlar Listesi -->
+        <!-- SAĞ PANEL -->
         <div class="panel list-panel">
             <h2>🏢 Aktif / Pasif Müşteriler</h2>
             <div id="kurumlarListesi"></div>
         </div>
     </div>
 
-    <div class="footer-logo">
-        <!-- Tırnak işaretleri düzeltildi, logo artık kusursuz görünecek -->
-        <img src="Tazzy Beyaz.png" alt="Tazzy">
-    </div>
+    <div class="footer-logo"><img src="Tazzy Beyaz.png" alt="Tazzy"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let seciliLogoBase64 = undefined; // undefined = logoya dokunma, null = logoyu sil, string = yeni logo
         
         socket.emit('master_veri_istek');
+
+        // Dosya seçildiğinde önizleme yap
+        document.getElementById('k_logo_input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    seciliLogoBase64 = evt.target.result;
+                    document.getElementById('k_logo_onizleme').src = seciliLogoBase64;
+                    document.getElementById('k_logo_onizleme').style.display = 'block';
+                    document.getElementById('logoYokMetin').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function logoyuTemizle() {
+            seciliLogoBase64 = null; // Sunucuya null gidecek ve logo silinecek
+            document.getElementById('k_logo_input').value = "";
+            document.getElementById('k_logo_onizleme').style.display = 'none';
+            document.getElementById('k_logo_onizleme').src = "";
+            document.getElementById('logoYokMetin').style.display = 'inline';
+        }
 
         socket.on('master_veriler', (kurumlar) => {
             const liste = document.getElementById('kurumlarListesi');
             liste.innerHTML = "";
-            
             const bugun = new Date();
 
             Object.keys(kurumlar).forEach(kodu => {
                 const k = kurumlar[kodu];
-                const bitisTarihi = new Date(k.bitis);
-                const lisansBittiMi = bugun > bitisTarihi;
-                
+                const lisansBittiMi = bugun > new Date(k.bitis);
                 let durumMetni = "";
-                if(!k.aktif) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Durum: Askıya Alınmış</span>";
-                else if(lisansBittiMi) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Durum: Lisans Süresi Dolmuş!</span>";
-                else durumMetni = "<span class='durum-etiket' style='color:#10b981; border-color:#10b981;'>Durum: Aktif & Yayında</span>";
+                if(!k.aktif) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Askıya Alınmış</span>";
+                else if(lisansBittiMi) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Lisans Dolmuş</span>";
+                else durumMetni = "<span class='durum-etiket' style='color:#10b981; border-color:#10b981;'>Aktif</span>";
 
                 liste.innerHTML += `
                     <div class="kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}">
@@ -140,16 +170,13 @@
             const bitis = document.getElementById('k_bitis').value;
             const aktif = document.getElementById('k_aktif').checked;
 
-            if(!kodu || !sifre || !bitis) {
-                alert("Lütfen kod, şifre ve bitiş tarihini boş bırakmayın.");
-                return;
-            }
+            if(!kodu || !sifre || !bitis) { alert("Lütfen kod, şifre ve bitiş tarihini boş bırakmayın."); return; }
 
-            socket.emit('master_kurum_ekle_guncelle', { kodu, sifre, bitis, aktif });
+            // Logo varsa veya silindiyse gönder, yoksa undefined gönder
+            socket.emit('master_kurum_ekle_guncelle', { kodu, sifre, bitis, aktif, logoBase64: seciliLogoBase64 });
             
-            document.getElementById('k_kodu').value = "";
-            document.getElementById('k_sifre').value = "";
-            document.getElementById('k_bitis').value = "";
+            document.getElementById('k_kodu').value = ""; document.getElementById('k_sifre').value = ""; document.getElementById('k_bitis').value = "";
+            logoyuTemizle(); seciliLogoBase64 = undefined;
         }
 
         function duzenle(kodu, sifre, bitis, aktif) {
@@ -157,13 +184,23 @@
             document.getElementById('k_sifre').value = sifre;
             document.getElementById('k_bitis').value = bitis;
             document.getElementById('k_aktif').checked = aktif;
+            
+            // Düzenleye basınca sunucudan mevcut logoyu isteyelim
+            socket.emit('master_kurum_detay_istek', kodu);
         }
 
-        function kurumSil(kodu) {
-            if(confirm(`DİKKAT! ${kodu} kurumunun sisteme girişini tamamen silmek istiyor musunuz?`)) {
-                socket.emit('master_kurum_sil', kodu);
+        socket.on('master_kurum_detay_cevap', (data) => {
+            if(data.logo) {
+                seciliLogoBase64 = undefined; // Dokunmazsan eski logo kalır
+                document.getElementById('k_logo_onizleme').src = data.logo;
+                document.getElementById('k_logo_onizleme').style.display = 'block';
+                document.getElementById('logoYokMetin').style.display = 'none';
+            } else {
+                logoyuTemizle(); seciliLogoBase64 = undefined;
             }
-        }
+        });
+
+        function kurumSil(kodu) { if(confirm(`DİKKAT! ${kodu} kurumunun sisteme girişini tamamen silmek istiyor musunuz?`)) { socket.emit('master_kurum_sil', kodu); } }
     </script>
 </body>
 </html>
