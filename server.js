@@ -5,7 +5,31 @@ const fs = require('fs');
 const path = require('path');
 
 const API_KEY = (process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
-const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').trim();
+
+// Gemini model adları Google tarafından zamanla kapatılabiliyor/değiştirilebiliyor.
+// Bu yüzden tek modele bağlı kalmak yerine güvenli fallback listesi kullanıyoruz.
+// Render Environment'da GEMINI_MODEL değerine virgülle birden fazla model yazılabilir.
+const DEFAULT_GEMINI_MODELS = [
+    'gemini-flash-latest',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash'
+];
+function normalizeGeminiModelName(model) {
+    return String(model || '')
+        .trim()
+        .replace(/^models\//, '')
+        .replace(/^\/+/, '')
+        .trim();
+}
+function uniqueList(items) {
+    return Array.from(new Set(items.filter(Boolean)));
+}
+const USER_GEMINI_MODELS = String(process.env.GEMINI_MODEL || process.env.GEMINI_MODELS || '')
+    .split(',')
+    .map(normalizeGeminiModelName);
+const GEMINI_MODELS = uniqueList([...USER_GEMINI_MODELS, ...DEFAULT_GEMINI_MODELS]);
 
 const STORAGE_PROVIDER = (process.env.STORAGE_PROVIDER || 'supabase').trim().toLowerCase();
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
@@ -285,6 +309,103 @@ app.get('/logout', (req, res) => { res.status(401).send(`<script>let xhr = new X
 const kurumAktifPin = {};
 const oyunlar = {};
 
+async function listAvailableGeminiModels() {
+    if (!API_KEY) return [];
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(API_KEY)}`;
+        const response = await fetch(url);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !Array.isArray(data.models)) return [];
+
+        const disallowed = ['image', 'tts', 'audio', 'live', 'embedding', 'veo', 'imagen'];
+        return data.models
+            .filter(m => {
+                const methods = m.supportedGenerationMethods || m.supportedActions || [];
+                const name = normalizeGeminiModelName(m.name);
+                const lower = name.toLowerCase();
+                return methods.includes('generateContent')
+                    && lower.includes('gemini')
+                    && !disallowed.some(x => lower.includes(x));
+            })
+            .map(m => normalizeGeminiModelName(m.name))
+            .sort((a, b) => {
+                const score = (name) => {
+                    const n = name.toLowerCase();
+                    if (n.includes('flash') && !n.includes('lite')) return 0;
+                    if (n.includes('flash-lite')) return 1;
+                    if (n.includes('pro')) return 2;
+                    return 3;
+                };
+                return score(a) - score(b);
+            });
+    } catch (e) {
+        console.warn('[UYARI] Gemini model listesi alınamadı:', e.message);
+        return [];
+    }
+}
+
+async function callGeminiModel(modelName, promptText, useJsonMime = true) {
+    const model = normalizeGeminiModelName(modelName);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(API_KEY)}`;
+    const generationConfig = { temperature: 0.8 };
+    if (useJsonMime) generationConfig.responseMimeType = 'application/json';
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig
+        })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const apiMesaj = data.error?.message || `Google API HTTP ${response.status}`;
+        const err = new Error(apiMesaj);
+        err.status = response.status;
+        err.model = model;
+        throw err;
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+    if (!text) throw new Error(`${model} boş cevap döndürdü.`);
+    return { text, model };
+}
+
+async function generateGeminiQuizJson(promptText) {
+    const denenenler = [];
+    const dynamicModels = await listAvailableGeminiModels();
+    const modelList = uniqueList([...GEMINI_MODELS, ...dynamicModels]);
+
+    for (const model of modelList) {
+        try {
+            const result = await callGeminiModel(model, promptText, true);
+            console.log(`[BILGI] Gemini AI başarılı model: ${result.model}`);
+            return result;
+        } catch (e) {
+            denenenler.push(`${model}: ${e.message}`);
+            const msg = String(e.message || '').toLowerCase();
+
+            // Bazı eski/preview modeller responseMimeType desteklemeyebilir.
+            // Aynı modeli JSON mime olmadan bir kez daha deniyoruz.
+            if (msg.includes('responsemime') || msg.includes('response_mime') || msg.includes('generationconfig')) {
+                try {
+                    const result = await callGeminiModel(model, promptText, false);
+                    console.log(`[BILGI] Gemini AI başarılı model: ${result.model} (JSON mime olmadan)`);
+                    return result;
+                } catch (e2) {
+                    denenenler.push(`${model} / json-mime-yok: ${e2.message}`);
+                }
+            }
+            console.warn(`[UYARI] Gemini modeli başarısız: ${model} - ${e.message}`);
+        }
+    }
+
+    const kisaOzet = denenenler.slice(0, 6).join(' | ');
+    throw new Error(`Yapay zeka servis hatası: API anahtarınıza uygun çalışan Gemini modeli bulunamadı. Denenenler: ${kisaOzet}`);
+}
+
 io.on('connection', (socket) => {
 
     socketAsync(socket, 'master_veri_istek', async () => {
@@ -390,27 +511,8 @@ Kurallar:
 Format:
 [{"soru":"...","gorsel_prompt":"...","secenekler":{"A":"...","B":"...","C":"...","D":"..."},"dogruCevap":"A"}]`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(API_KEY)}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: {
-                        temperature: 0.8,
-                        responseMimeType: 'application/json'
-                    }
-                })
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const apiMesaj = data.error?.message || `Google API HTTP ${response.status}`;
-                throw new Error(`Yapay zeka servis hatası: ${apiMesaj}`);
-            }
-
-            const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-            if (!text) throw new Error('Yapay zeka boş cevap döndürdü.');
+            const aiCevap = await generateGeminiQuizJson(promptText);
+            const text = aiCevap.text;
 
             let temiz = text.replace(/```json/gi, '').replace(/```/g, '').trim();
             const ilk = temiz.indexOf('[');
