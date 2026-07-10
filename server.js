@@ -23,6 +23,31 @@ function normalizeGeminiModelName(model) {
         .replace(/^\/+/, '')
         .trim();
 }
+
+const GEMINI_QUIZ_RESPONSE_SCHEMA = {
+    type: 'ARRAY',
+    minItems: 1,
+    maxItems: 10,
+    items: {
+        type: 'OBJECT',
+        required: ['soru', 'gorsel_prompt', 'secenekler', 'dogruCevap'],
+        properties: {
+            soru: { type: 'STRING' },
+            gorsel_prompt: { type: 'STRING' },
+            secenekler: {
+                type: 'OBJECT',
+                required: ['A', 'B', 'C', 'D'],
+                properties: {
+                    A: { type: 'STRING' },
+                    B: { type: 'STRING' },
+                    C: { type: 'STRING' },
+                    D: { type: 'STRING' }
+                }
+            },
+            dogruCevap: { type: 'STRING', enum: ['A', 'B', 'C', 'D'] }
+        }
+    }
+};
 function uniqueList(items) {
     return Array.from(new Set(items.filter(Boolean)));
 }
@@ -344,11 +369,19 @@ async function listAvailableGeminiModels() {
     }
 }
 
-async function callGeminiModel(modelName, promptText, useJsonMime = true) {
+async function callGeminiModel(modelName, promptText, useJsonMime = true, useSchema = true) {
     const model = normalizeGeminiModelName(modelName);
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(API_KEY)}`;
-    const generationConfig = { temperature: 0.8 };
-    if (useJsonMime) generationConfig.responseMimeType = 'application/json';
+    const generationConfig = {
+        temperature: 0.35,
+        topP: 0.9,
+        maxOutputTokens: 8192
+    };
+
+    if (useJsonMime) {
+        generationConfig.responseMimeType = 'application/json';
+        if (useSchema) generationConfig.responseSchema = GEMINI_QUIZ_RESPONSE_SCHEMA;
+    }
 
     const response = await fetch(url, {
         method: 'POST',
@@ -359,18 +392,151 @@ async function callGeminiModel(modelName, promptText, useJsonMime = true) {
         })
     });
 
-    const data = await response.json().catch(() => ({}));
+    const rawBody = await response.text();
+    let data = {};
+    try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (_) {}
+
     if (!response.ok) {
-        const apiMesaj = data.error?.message || `Google API HTTP ${response.status}`;
+        const apiMesaj = data.error?.message || rawBody || `Google API HTTP ${response.status}`;
         const err = new Error(apiMesaj);
         err.status = response.status;
         err.model = model;
         throw err;
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-    if (!text) throw new Error(`${model} boş cevap döndürdü.`);
-    return { text, model };
+    const finishReason = data.candidates?.[0]?.finishReason;
+    const text = data.candidates?.[0]?.content?.parts?.map(p => {
+        if (typeof p.text === 'string') return p.text;
+        if (p.inlineData || p.functionCall || p.executableCode || p.codeExecutionResult) return '';
+        return '';
+    }).join('').trim();
+
+    if (!text) {
+        const err = new Error(`${model} boş cevap döndürdü.${finishReason ? ' finishReason=' + finishReason : ''}`);
+        err.model = model;
+        throw err;
+    }
+
+    return { text, model, finishReason };
+}
+
+function stripGeminiJsonText(text) {
+    let temiz = String(text || '').trim();
+    temiz = temiz.replace(/^\uFEFF/, '').trim();
+    temiz = temiz.replace(/^```(?:json|javascript|js)?\s*/i, '').replace(/```$/g, '').trim();
+    temiz = temiz.replace(/^json\s*[:\-]?\s*/i, '').trim();
+    return temiz;
+}
+
+function extractBalancedJsonCandidate(text) {
+    const temiz = stripGeminiJsonText(text);
+    const firstArray = temiz.indexOf('[');
+    const firstObject = temiz.indexOf('{');
+    let start = -1;
+    if (firstArray !== -1 && firstObject !== -1) start = Math.min(firstArray, firstObject);
+    else start = firstArray !== -1 ? firstArray : firstObject;
+    if (start === -1) return temiz;
+
+    const open = temiz[start];
+    const close = open === '[' ? ']' : '}';
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+
+    for (let i = start; i < temiz.length; i++) {
+        const ch = temiz[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\') { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === open) depth++;
+        else if (ch === close) {
+            depth--;
+            if (depth === 0) return temiz.slice(start, i + 1);
+        }
+    }
+
+    return temiz.slice(start);
+}
+
+function unwrapQuestionArray(parsed) {
+    if (Array.isArray(parsed)) return parsed;
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const adayAlanlar = ['sorular', 'questions', 'quiz', 'items', 'data', 'result', 'results'];
+    for (const alan of adayAlanlar) {
+        if (Array.isArray(parsed[alan])) return parsed[alan];
+        if (parsed[alan] && typeof parsed[alan] === 'object') {
+            const alt = unwrapQuestionArray(parsed[alan]);
+            if (alt) return alt;
+        }
+    }
+    return null;
+}
+
+function parseAiQuestionsFromText(text) {
+    const adaylar = uniqueList([
+        String(text || '').trim(),
+        stripGeminiJsonText(text),
+        extractBalancedJsonCandidate(text)
+    ]);
+
+    let sonHata = null;
+    for (const aday of adaylar) {
+        if (!aday) continue;
+        try {
+            const parsed = JSON.parse(aday);
+            const liste = unwrapQuestionArray(parsed);
+            if (Array.isArray(liste)) return liste;
+        } catch (e) {
+            sonHata = e;
+        }
+    }
+
+    const hata = new Error('Yapay zeka cevabı JSON formatında okunamadı. Sistem otomatik düzeltme deneyecek.');
+    hata.cause = sonHata;
+    hata.rawText = String(text || '').slice(0, 1500);
+    throw hata;
+}
+
+function buildAiRepairPrompt(rawText, sayi, konu) {
+    return `Aşağıdaki metin bir quiz JSON cevabı olmalıydı ama formatı bozulmuş olabilir.
+Görevin: Metni geçerli JSON dizisine dönüştür.
+
+Kurallar:
+- Sadece JSON dizisi döndür.
+- En fazla ${sayi} soru olsun.
+- Türkçe çoktan seçmeli quiz formatı kullan.
+- Her elemanda soru, gorsel_prompt, secenekler.A/B/C/D, dogruCevap alanları zorunlu.
+- dogruCevap sadece A, B, C veya D olabilir.
+- Eksik alan varsa "${konu}" konusuna uygun şekilde tamamla.
+- Markdown, açıklama, kod bloğu yazma.
+
+Bozuk metin:
+${String(rawText || '').slice(0, 12000)}`;
+}
+
+async function parseOrRepairAiQuestions(aiCevap, sayi, konu) {
+    try {
+        return parseAiQuestionsFromText(aiCevap.text);
+    } catch (ilkHata) {
+        console.warn('[UYARI] Gemini JSON parse başarısız. Otomatik JSON düzeltme deneniyor:', ilkHata.cause?.message || ilkHata.message);
+        const repairPrompt = buildAiRepairPrompt(aiCevap.text, sayi, konu);
+
+        const oncelikliModeller = uniqueList([aiCevap.model, ...GEMINI_MODELS, ...(await listAvailableGeminiModels())]);
+        let sonHata = ilkHata;
+        for (const model of oncelikliModeller) {
+            try {
+                const repaired = await callGeminiModel(model, repairPrompt, true, true);
+                console.log(`[BILGI] Gemini JSON düzeltme başarılı model: ${repaired.model}`);
+                return parseAiQuestionsFromText(repaired.text);
+            } catch (e) {
+                sonHata = e;
+                console.warn(`[UYARI] Gemini JSON düzeltme başarısız: ${model} - ${e.message}`);
+            }
+        }
+        throw new Error(`Yapay zeka cevabı JSON formatında okunamadı. Son hata: ${sonHata.message || sonHata}`);
+    }
 }
 
 async function generateGeminiQuizJson(promptText) {
@@ -387,11 +553,22 @@ async function generateGeminiQuizJson(promptText) {
             denenenler.push(`${model}: ${e.message}`);
             const msg = String(e.message || '').toLowerCase();
 
+            // Bazı modeller responseSchema desteklemez ama JSON mime destekler.
+            if (msg.includes('responseschema') || msg.includes('response_schema') || msg.includes('schema')) {
+                try {
+                    const result = await callGeminiModel(model, promptText, true, false);
+                    console.log(`[BILGI] Gemini AI başarılı model: ${result.model} (schema olmadan)`);
+                    return result;
+                } catch (eSchema) {
+                    denenenler.push(`${model} / schema-yok: ${eSchema.message}`);
+                }
+            }
+
             // Bazı eski/preview modeller responseMimeType desteklemeyebilir.
             // Aynı modeli JSON mime olmadan bir kez daha deniyoruz.
             if (msg.includes('responsemime') || msg.includes('response_mime') || msg.includes('generationconfig')) {
                 try {
-                    const result = await callGeminiModel(model, promptText, false);
+                    const result = await callGeminiModel(model, promptText, false, false);
                     console.log(`[BILGI] Gemini AI başarılı model: ${result.model} (JSON mime olmadan)`);
                     return result;
                 } catch (e2) {
@@ -512,16 +689,7 @@ Format:
 [{"soru":"...","gorsel_prompt":"...","secenekler":{"A":"...","B":"...","C":"...","D":"..."},"dogruCevap":"A"}]`;
 
             const aiCevap = await generateGeminiQuizJson(promptText);
-            const text = aiCevap.text;
-
-            let temiz = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const ilk = temiz.indexOf('[');
-            const son = temiz.lastIndexOf(']');
-            if (ilk !== -1 && son !== -1) temiz = temiz.slice(ilk, son + 1);
-
-            let sorular;
-            try { sorular = JSON.parse(temiz); }
-            catch(e) { throw new Error('Yapay zeka cevabı JSON formatında okunamadı. Lütfen tekrar deneyin.'); }
+            const sorular = await parseOrRepairAiQuestions(aiCevap, sayi, konu);
 
             if (!Array.isArray(sorular) || sorular.length === 0) throw new Error('Yapay zeka soru listesi oluşturamadı.');
             const duzeltilmis = sorular.slice(0, sayi).map((s, i) => ({

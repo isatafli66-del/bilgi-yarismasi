@@ -184,7 +184,7 @@
             document.getElementById('aiYukleniyor').style.display = 'none'; 
             document.getElementById('aiDurum').innerText = mesaj; 
             document.getElementById('aiDurum').style.color = "red"; 
-            alert("Yapay Zeka Hatası: Lütfen API Anahtarınızı kontrol edin!\n\nDetay: " + mesaj);
+            alert("Yapay Zeka Hatası:\n\n" + mesaj);
         });
 
         function aiSoruyuQuizeEkle(index) { if(!seciliQuizId) { alert("Quiz seçin!"); return; } const s = uretilenSorular[index]; const gorselUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(s.gorsel_prompt)}?width=800&height=400&nologo=true`; socket.emit('soru_ekle_guncelle', { quizId: seciliQuizId, soru: { soru: s.soru, gorsel: gorselUrl, secenekler: s.secenekler, dogruCevap: s.dogruCevap } }); }
