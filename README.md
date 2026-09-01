@@ -1,7 +1,7 @@
-# Tazzy Quiz 1.1.0
+# Tazzy Quiz 1.1.1
 
 Bu paket, çalışan Tazzy Quiz sisteminin mevcut görünümünü, Socket.IO oyun akışını,
-Supabase JSON kayıt yapısını ve kurum bazlı multi-tenant mantığını koruyarak üç yeni
+Supabase JSON kayıt yapısını ve kurum bazlı multi-tenant mantığını koruyarak dört yeni
 özellik ekler.
 
 ## Eklenen özellikler
@@ -48,6 +48,20 @@ Ana ekranda ve yarışmacı ekranında:
 ```
 
 biçiminde soru sırası gösterilir. Son soruda kalan soru değeri `0` olur.
+
+### 4. Ekran boyutuna göre otomatik sığdırma
+
+Ana ekran ve yarışmacı ekranı; uzun soru metni, uzun cevaplar ve büyük görseller
+birlikte kullanıldığında açıldıkları pencerenin kullanılabilir yüksekliğine göre
+otomatik olarak yeniden ölçeklenir.
+
+- Görseller en-boy oranı bozulmadan küçültülür.
+- Soru ve cevap yazıları yalnızca gerektiğinde kademeli olarak küçültülür.
+- Yarışmacı cevapları artık üç satırdan sonra kesilmez.
+- Telefon yönü değiştirildiğinde yerleşim yeniden hesaplanır.
+- Kısa içeriklerde mevcut büyük ve rahat görünüm korunur.
+- Yatay telefon ekranında soru ve görsel solda, cevaplar sağda gösterilir.
+- Ana ekrandaki zamanlayıcı soru kutusuyla çakışmaz.
 
 ## Değiştirilen dosyalar
 
@@ -150,6 +164,8 @@ Test şunları doğrular:
 - Doğru/yanlış renk sınıfları
 - `soruNo`, `toplamSoru` ve `kalanSoru` sözleşmesi
 - Doğru cevabın normal soru paketinden çıkarılması
+- Ana ekran ve yarışmacı ekranının dinamik pencere yüksekliğine sığdırılması
+- Telefon yön değişiminin ve uzun cevap metinlerinin kesilmeden gösterilmesinin korunması
 
 ## Deploy sonrası kabul testi
 
@@ -173,3 +189,4 @@ Test şunları doğrular:
 Beklenmeyen bir durum olursa GitHub'da bu güncellemeden önceki commit'i yeniden
 deploy etmek yeterlidir. Veritabanı şeması değişmediği için ayrıca Supabase geri
 dönüş işlemi gerekmez.
+
