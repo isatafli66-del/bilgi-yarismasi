@@ -43,8 +43,22 @@ for (const [ad, html] of [['ekran.html', ekran], ['index.html', oyuncu]]) {
     assert.ok(html.includes('kalanSoru'), `${ad} kalan soru bilgisini kullanmıyor.`);
 }
 
+assert.ok(ekran.includes('height: 100dvh'), 'Ana ekran dinamik pencere yüksekliğini kullanmıyor.');
+assert.ok(ekran.includes('--fit-scale'), 'Ana ekran içerik ölçeği eksik.');
+assert.ok(ekran.includes('function anaEkranaSigdir()'), 'Ana ekran otomatik sığdırma işlevi eksik.');
+assert.ok(ekran.includes('class="secenek-metin"'), 'Ana ekran uzun seçenek metinlerini bağımsız sığdırmıyor.');
+assert.ok(ekran.includes("window.addEventListener('resize', anaEkranaSigdir)"), 'Ana ekran boyut değişimini izlemiyor.');
+
+assert.ok(oyuncu.includes('height: 100dvh'), 'Yarışmacı ekranı dinamik pencere yüksekliğini kullanmıyor.');
+assert.ok(oyuncu.includes('--mobil-fit'), 'Yarışmacı ekranı içerik ölçeği eksik.');
+assert.ok(oyuncu.includes('function mobilEkranaSigdir()'), 'Yarışmacı ekranı otomatik sığdırma işlevi eksik.');
+assert.ok(oyuncu.includes("window.addEventListener('orientationchange', mobilEkranaSigdir)"), 'Yarışmacı ekranı yön değişimini izlemiyor.');
+assert.ok(!oyuncu.includes('-webkit-line-clamp: 3'), 'Yarışmacı cevapları hâlâ üç satırda kesiliyor.');
+
 console.log('✓ Sunucu ve üç istemci dosyasının JavaScript sözdizimi geçerli');
 console.log('✓ Admin soru düzenleme alanları ve kaydetme sözleşmesi mevcut');
 console.log('✓ Cevap yansıtma olayı doğru/yanlış renkleriyle iki ekrana bağlı');
 console.log('✓ x/y ve kalan soru alanları sunucu–istemci sözleşmesinde mevcut');
 console.log('✓ Normal soru paketinde doğru cevap istemciye gönderilmiyor');
+console.log('✓ Ana ekran ve yarışmacı ekranı pencere boyutuna göre dinamik sığdırılıyor');
+
