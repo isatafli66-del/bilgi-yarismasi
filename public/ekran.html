@@ -6,23 +6,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #46178f; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow: hidden; }
+        html, body { width: 100%; height: 100%; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #46178f; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; height: 100dvh; overflow: hidden; }
         .gizli { display: none !important; }
         
-        #soruAlani { text-align: center; width: 90%; max-width: 1000px; margin-top: 40px; z-index: 10; }
-        #soruSayaci { width: fit-content; margin: 0 0 12px auto; background: rgba(255,255,255,0.95); color: #46178f; padding: 10px 18px; border-radius: 999px; font-size: 22px; font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
-        #kalanSoruMetni { color: #666; font-size: 16px; margin-left: 8px; }
-        #soruBaslik { font-size: 40px; font-weight: bold; background: white; color: #333; padding: 30px; border-radius: 12px; box-shadow: 0 6px 0px #ccc; margin-bottom: 30px; }
-        #soruResmi { max-width: 100%; height: 350px; object-fit: contain; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 20px; }
+        #oyunAlani { --fit-scale: 1; width: 100%; height: 100vh; height: 100dvh; box-sizing: border-box; padding: calc(14px * var(--fit-scale)) clamp(14px, 3vw, 42px) calc(55px * var(--fit-scale)); display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+        #soruIcerigi { width: min(92vw, 1100px); height: 100%; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: calc(14px * var(--fit-scale)); z-index: 10; }
+        #soruAlani { text-align: center; width: 100%; min-height: 0; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        #soruSayaci { flex: 0 0 auto; width: fit-content; margin: 0 0 calc(10px * var(--fit-scale)) auto; background: rgba(255,255,255,0.95); color: #46178f; padding: calc(8px * var(--fit-scale)) calc(16px * var(--fit-scale)); border-radius: 999px; font-size: clamp(14px, calc(22px * var(--fit-scale)), 22px); font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        #kalanSoruMetni { color: #666; font-size: 0.72em; margin-left: 8px; }
+        #soruBaslik { width: 100%; max-height: min(23vh, calc(190px * var(--fit-scale))); box-sizing: border-box; overflow: hidden; overflow-wrap: anywhere; font-size: clamp(16px, calc(40px * var(--fit-scale)), 40px); line-height: 1.13; font-weight: bold; background: white; color: #333; padding: calc(22px * var(--fit-scale)) calc(26px * var(--fit-scale)); border-radius: 12px; box-shadow: 0 6px 0px #ccc; margin: 0 0 calc(12px * var(--fit-scale)); }
+        #soruResmi { display: block; width: 100%; max-width: 100%; height: min(32vh, calc(330px * var(--fit-scale))); min-height: 0; object-fit: contain; background: rgba(0,0,0,0.2); border-radius: 12px; margin: 0; }
         
-        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 90%; max-width: 1000px; margin-bottom: 40px; z-index: 10; }
-        .secenek-kart { padding: 30px; font-size: 28px; font-weight: bold; border-radius: 8px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); text-align: left; display: flex; align-items: center; }
+        .grid-layout { flex: 1 1 240px; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: calc(16px * var(--fit-scale)); width: 100%; margin: 0; }
+        .secenek-kart { min-width: 0; min-height: 0; overflow: hidden; padding: calc(22px * var(--fit-scale)); font-size: clamp(14px, calc(28px * var(--fit-scale)), 28px); line-height: 1.15; font-weight: bold; border-radius: 8px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); text-align: left; display: flex; align-items: center; }
+        .secenek-metin { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; }
         .s-a { background: #e21b3c; } .s-b { background: #1368ce; } .s-c { background: #d89e00; } .s-d { background: #26890c; }
         .secenek-kart.cevap-dogru { background: #16a34a !important; box-shadow: 0 6px 0 #0f6f32, 0 0 0 5px white; }
         .secenek-kart.cevap-yanlis { background: #dc2626 !important; opacity: 0.88; box-shadow: 0 6px 0 #991b1b; }
         .secenek-kart.cevap-dogru::after { content: '✓ DOĞRU'; margin-left: auto; font-size: 20px; }
         .secenek-kart.cevap-yanlis::after { content: '✕ YANLIŞ'; margin-left: auto; font-size: 18px; }
-        .harf-ikon { width: 45px; height: 45px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin-right: 20px; flex-shrink: 0; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
+        .harf-ikon { width: calc(45px * var(--fit-scale)); height: calc(45px * var(--fit-scale)); min-width: 28px; min-height: 28px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(17px, calc(28px * var(--fit-scale)), 28px); font-weight: bold; margin-right: calc(16px * var(--fit-scale)); flex-shrink: 0; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
 
         #skorBord { background: white; color: #333; width: 60%; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px; z-index: 10; }
         ul { list-style: none; padding: 0; margin: 0; }
@@ -42,6 +46,24 @@
         .giris-paneli { background: white; padding: 30px; border-radius: 15px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.4); color: #333; }
         .pin-kodu { font-size: 70px; font-weight: bold; letter-spacing: 5px; color: #e21b3c; margin: 10px 0; }
         #qrKutu { margin: 20px auto; display: flex; justify-content: center; padding: 10px; background: white; border: 2px solid #eee; border-radius: 8px; width: fit-content; }
+
+        @media (max-height: 720px) {
+            #oyunAlani { padding-top: 8px; padding-bottom: 42px; }
+            #soruIcerigi { gap: 8px; }
+            #soruBaslik { max-height: 19vh; margin-bottom: 7px; }
+            #soruResmi { height: min(27vh, calc(260px * var(--fit-scale))); }
+            .grid-layout { gap: 10px; }
+        }
+
+        @media (min-width: 761px) {
+            #soruBaslik { width: calc(100% - 120px); align-self: flex-end; }
+        }
+
+        @media (max-width: 760px) {
+            #soruIcerigi { width: 94vw; }
+            #zamanlayici { left: 10px; top: 10px; width: 66px; height: 66px; font-size: 28px; border-width: 3px; }
+            #ekranLogo { max-height: 62px !important; right: 10px !important; top: 10px !important; }
+        }
     </style>
 </head>
 <body>
@@ -68,9 +90,11 @@
     <div id="araBekleme" class="bekleme-ekrani gizli" style="font-size: 50px; font-weight:bold; animation: pulse 2s infinite;">Süre Doldu!<br><span style="font-size: 30px;">Sıradaki soru bekleniyor...</span></div>
     <div id="sonBekleme" class="bekleme-ekrani gizli" style="font-size: 50px; font-weight:bold; animation: pulse 2s infinite;">Yarışma Tamamlandı!<br><span style="font-size: 30px;">Sonuçlar hesaplanıyor...</span></div>
 
-    <div id="oyunAlani" class="gizli" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-        <div id="soruAlani"><div id="soruSayaci" class="gizli"><span id="soruSayaciMetni">0/0</span><span id="kalanSoruMetni"></span></div><div id="soruBaslik">Soru Yükleniyor...</div><img id="soruResmi" src="" alt="Görsel"></div>
-        <div id="secenekler" class="grid-layout"></div>
+    <div id="oyunAlani" class="gizli">
+        <div id="soruIcerigi">
+            <div id="soruAlani"><div id="soruSayaci" class="gizli"><span id="soruSayaciMetni">0/0</span><span id="kalanSoruMetni"></span></div><div id="soruBaslik">Soru Yükleniyor...</div><img id="soruResmi" src="" alt="Görsel"></div>
+            <div id="secenekler" class="grid-layout"></div>
+        </div>
     </div>
 
     <div id="skorBord" class="gizli">
@@ -127,6 +151,45 @@
             alkisSesi.pause(); alkisSesi.currentTime = 0;
         }
 
+        let sigdirmaKaresi = null;
+        function metniKutuyaSigdir(element, minimumBoyut) {
+            if(!element || element.clientHeight === 0 || element.clientWidth === 0) return;
+            element.style.fontSize = '';
+            let boyut = parseFloat(getComputedStyle(element).fontSize);
+            let deneme = 0;
+            while((element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1) && boyut > minimumBoyut && deneme < 32) {
+                boyut -= 1;
+                element.style.fontSize = `${boyut}px`;
+                deneme += 1;
+            }
+        }
+
+        function anaEkranaSigdir() {
+            if(sigdirmaKaresi) cancelAnimationFrame(sigdirmaKaresi);
+            sigdirmaKaresi = requestAnimationFrame(() => {
+                const oyun = document.getElementById('oyunAlani');
+                const icerik = document.getElementById('soruIcerigi');
+                if(!oyun || !icerik || oyun.classList.contains('gizli')) return;
+
+                oyun.style.setProperty('--fit-scale', '1');
+                document.getElementById('soruBaslik').style.fontSize = '';
+                document.querySelectorAll('#secenekler .secenek-metin').forEach(metin => metin.style.fontSize = '');
+
+                let olcek = 1;
+                const tasiyor = () => icerik.scrollHeight > icerik.clientHeight + 1 || icerik.scrollWidth > icerik.clientWidth + 1;
+                for(let i = 0; i < 8 && tasiyor(); i += 1) {
+                    olcek = Math.max(0.58, olcek - 0.06);
+                    oyun.style.setProperty('--fit-scale', olcek.toFixed(2));
+                }
+
+                metniKutuyaSigdir(document.getElementById('soruBaslik'), 15);
+                document.querySelectorAll('#secenekler .secenek-metin').forEach(metin => metniKutuyaSigdir(metin, 12));
+            });
+        }
+
+        window.addEventListener('resize', anaEkranaSigdir);
+        if(window.visualViewport) window.visualViewport.addEventListener('resize', anaEkranaSigdir);
+
         socket.on('oturum_basladi', (data) => { 
             tumEkranlariGizle(); document.getElementById('qrBeklemeEkrani').classList.remove('gizli'); document.getElementById('devEkraniPin').innerText = data.pin;
             document.getElementById('qrKutu').innerHTML = ""; 
@@ -139,8 +202,10 @@
             tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('zamanlayici').classList.remove('gizli'); document.getElementById('zamanlayici').style.background = '#864cbf';
             const sayac = document.getElementById('soruSayaci'); sayac.classList.remove('gizli'); document.getElementById('soruSayaciMetni').innerText = `${gelenSoru.soruNo || 1}/${gelenSoru.toplamSoru || 1}`; document.getElementById('kalanSoruMetni').innerText = `• ${Math.max(Number(gelenSoru.kalanSoru) || 0, 0)} soru kaldı`;
             document.getElementById('soruBaslik').innerText = gelenSoru.soru; const resim = document.getElementById('soruResmi');
-            if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
-            document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a" data-secenek="A"><div class="harf-ikon">A</div> ${gelenSoru.secenekler.A}</div><div class="secenek-kart s-b" data-secenek="B"><div class="harf-ikon">B</div> ${gelenSoru.secenekler.B}</div><div class="secenek-kart s-c" data-secenek="C"><div class="harf-ikon">C</div> ${gelenSoru.secenekler.C}</div><div class="secenek-kart s-d" data-secenek="D"><div class="harf-ikon">D</div> ${gelenSoru.secenekler.D}</div>`;
+            resim.onload = anaEkranaSigdir; resim.onerror = anaEkranaSigdir;
+            if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.removeAttribute('src'); resim.classList.add('gizli'); }
+            document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a" data-secenek="A"><div class="harf-ikon">A</div><span class="secenek-metin">${gelenSoru.secenekler.A}</span></div><div class="secenek-kart s-b" data-secenek="B"><div class="harf-ikon">B</div><span class="secenek-metin">${gelenSoru.secenekler.B}</span></div><div class="secenek-kart s-c" data-secenek="C"><div class="harf-ikon">C</div><span class="secenek-metin">${gelenSoru.secenekler.C}</span></div><div class="secenek-kart s-d" data-secenek="D"><div class="harf-ikon">D</div><span class="secenek-metin">${gelenSoru.secenekler.D}</span></div>`;
+            anaEkranaSigdir();
         });
 
         socket.on('cevap_yansit', (bilgi) => {
@@ -154,6 +219,7 @@
                 kart.classList.toggle('cevap-dogru', dogruMu);
                 kart.classList.toggle('cevap-yanlis', !dogruMu);
             });
+            anaEkranaSigdir();
         });
 
         socket.on('zaman_guncelle', (kalanSaniye) => { 
@@ -186,3 +252,4 @@
     </script>
 </body>
 </html>
+
