@@ -7,7 +7,8 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow-x: hidden;}
+        html, body { width: 100%; height: 100%; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
         .gizli { display: none !important; }
         
         #girisAlani { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #46178f; color: white; padding: 20px; }
@@ -21,23 +22,24 @@
         #kameraAlan { background: white; padding: 10px; border-radius: 8px; margin-bottom: 15px; width: 90%; max-width: 400px; color: #333; }
         #reader { width: 100%; }
         
-        #oyunAlani { flex: 1; display: flex; flex-direction: column; background: #f2f2f2; padding: 10px; }
-        #bilgiBar { background: white; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        #mobilSoruSayaci { background: #46178f; color: white; padding: 7px 12px; border-radius: 999px; font-size: 15px; white-space: nowrap; }
+        #oyunAlani { --mobil-fit: 1; flex: 1 1 auto; width: 100%; min-height: 0; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); gap: calc(8px * var(--mobil-fit)); background: #f2f2f2; padding: calc(8px * var(--mobil-fit)); overflow: hidden; }
+        #bilgiBar { min-width: 0; background: white; padding: calc(12px * var(--mobil-fit)); border-radius: 8px; font-weight: bold; font-size: clamp(13px, calc(18px * var(--mobil-fit)), 18px); margin: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        #mobilSoruSayaci { background: #46178f; color: white; padding: calc(6px * var(--mobil-fit)) calc(10px * var(--mobil-fit)); border-radius: 999px; font-size: clamp(11px, calc(15px * var(--mobil-fit)), 15px); white-space: nowrap; }
         #mobilKalanSoru { font-size: 11px; opacity: 0.85; margin-left: 4px; }
-        #soruBaslik { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-        #soruResmi { max-width: 100%; height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; }
+        #soruBaslik { min-width: 0; max-height: min(18vh, 135px); box-sizing: border-box; overflow: hidden; overflow-wrap: anywhere; font-size: clamp(12px, calc(18px * var(--mobil-fit)), 18px); line-height: 1.18; font-weight: bold; margin: 0; padding: 0 calc(3px * var(--mobil-fit)); }
+        #soruResmi { display: block; width: 100%; max-width: 100%; height: min(22vh, calc(155px * var(--mobil-fit))); min-height: 0; object-fit: contain; border-radius: 8px; margin: 0; }
         
-        .cevap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; margin-bottom: 10px; }
-        .btn { border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 6px 0px rgba(0,0,0,0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; gap: 10px; }
+        .cevap-grid { min-width: 0; min-height: 0; width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: calc(8px * var(--mobil-fit)); margin: 0; overflow: hidden; }
+        .btn { min-width: 0; min-height: 0; overflow: hidden; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: clamp(10px, calc(14px * var(--mobil-fit)), 14px); line-height: 1.16; box-shadow: 0 6px 0px rgba(0,0,0,0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(10px * var(--mobil-fit)); gap: calc(7px * var(--mobil-fit)); }
         .btn-a { background: #e21b3c; } .btn-b { background: #1368ce; } .btn-c { background: #d89e00; } .btn-d { background: #26890c; }
         .btn.cevap-dogru { background: #16a34a !important; box-shadow: 0 6px 0 #0f6f32, 0 0 0 4px #fff; opacity: 1; }
         .btn.cevap-yanlis { background: #dc2626 !important; box-shadow: 0 6px 0 #991b1b; opacity: 0.82; }
         .btn.cevap-dogru::after { content: '✓ DOĞRU'; font-size: 13px; }
         .btn.cevap-yanlis::after { content: '✕ YANLIŞ'; font-size: 12px; }
         .btn:disabled { cursor: default; }
-        .harf-ikon { width: 40px; height: 40px; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
-        .cevap-metni { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .harf-ikon { width: calc(38px * var(--mobil-fit)); height: calc(38px * var(--mobil-fit)); min-width: 25px; min-height: 25px; flex-shrink: 0; background: white; color: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(15px, calc(23px * var(--mobil-fit)), 23px); font-weight: bold; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
+        .cevap-metni { display: block; width: 100%; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; line-height: 1.16; }
+        #mesajAlani { grid-row: 2 / 5; align-self: center; margin: 0 !important; }
 
         #skorBord { background: white; color: #333; width: 90%; max-width: 400px; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); margin: 30px auto; }
         #skorListesi { list-style: none; padding: 0; margin: 0; }
@@ -47,6 +49,28 @@
         .kupa { font-size: 60px; margin-bottom: 10px; animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-20px);} 60% {transform: translateY(-10px);} }
         #kazananlarListesi { font-size: 20px; font-weight: bold; margin-top: 20px; background: white; color: #333; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        #altImza { flex: 0 0 auto; padding: clamp(3px, 1vh, 8px); text-align: center; font-size: 11px; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; background: #f2f2f2; letter-spacing: 1px; }
+
+        @media (max-height: 650px) {
+            #oyunAlani { gap: 5px; padding: 5px; }
+            #bilgiBar { padding: 7px 9px; }
+            #soruBaslik { max-height: 14vh; }
+            #soruResmi { height: min(17vh, calc(105px * var(--mobil-fit))); }
+            .cevap-grid { gap: 6px; }
+            .btn { padding: 6px; gap: 4px; }
+            #altImza { padding: 2px; font-size: 9px; }
+            #altImza img { height: 14px !important; }
+        }
+
+        @media (orientation: landscape) and (max-height: 600px) {
+            #oyunAlani { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.65fr); grid-template-rows: auto auto minmax(0, 1fr); column-gap: 8px; }
+            #bilgiBar { grid-column: 1 / -1; grid-row: 1; }
+            #soruBaslik { grid-column: 1; grid-row: 2; max-height: 25vh; align-self: start; }
+            #soruResmi { grid-column: 1; grid-row: 3; width: 100%; height: 100%; max-height: 100%; }
+            .cevap-grid { grid-column: 2; grid-row: 2 / 4; }
+            #mesajAlani { grid-column: 1 / -1; grid-row: 2 / 4; }
+        }
     </style>
 </head>
 <body>
@@ -97,7 +121,7 @@
         <div id="kazananlarListesi"></div>
     </div>
 
-    <div style="padding: 10px; text-align: center; font-size: 11px; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; background: #f2f2f2; letter-spacing: 1px;">
+    <div id="altImza">
         <span>DESIGNED BY</span>
         <img src="Tazzy Siyah.png" alt="Tazzy" style="height: 18px; opacity: 0.8;">
     </div>
@@ -130,6 +154,50 @@
         function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
 
         function tumEkranlariGizle() { document.getElementById('girisAlani').classList.add('gizli'); document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('skorBord').classList.add('gizli'); document.getElementById('podyumEkrani').classList.add('gizli'); alkisSesi.pause(); alkisSesi.currentTime = 0; }
+
+        let mobilSigdirmaKaresi = null;
+        function mobilMetniKutuyaSigdir(element, minimumBoyut) {
+            if(!element || element.clientHeight === 0 || element.clientWidth === 0) return;
+            element.style.fontSize = '';
+            let boyut = parseFloat(getComputedStyle(element).fontSize);
+            let deneme = 0;
+            while((element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1) && boyut > minimumBoyut && deneme < 24) {
+                boyut -= 0.5;
+                element.style.fontSize = `${boyut}px`;
+                deneme += 1;
+            }
+        }
+
+        function mobilEkranaSigdir() {
+            if(mobilSigdirmaKaresi) cancelAnimationFrame(mobilSigdirmaKaresi);
+            mobilSigdirmaKaresi = requestAnimationFrame(() => {
+                const oyun = document.getElementById('oyunAlani');
+                if(!oyun || oyun.classList.contains('gizli')) return;
+
+                oyun.style.setProperty('--mobil-fit', '1');
+                document.getElementById('soruBaslik').style.fontSize = '';
+                document.querySelectorAll('#cevapButonlari .cevap-metni').forEach(metin => metin.style.fontSize = '');
+
+                const tasiyor = () => {
+                    if(oyun.scrollHeight > oyun.clientHeight + 1 || oyun.scrollWidth > oyun.clientWidth + 1) return true;
+                    if(document.getElementById('soruBaslik').scrollHeight > document.getElementById('soruBaslik').clientHeight + 1) return true;
+                    return Array.from(document.querySelectorAll('#cevapButonlari .btn')).some(btn => btn.scrollHeight > btn.clientHeight + 1 || btn.scrollWidth > btn.clientWidth + 1);
+                };
+
+                let olcek = 1;
+                for(let i = 0; i < 8 && tasiyor(); i += 1) {
+                    olcek = Math.max(0.58, olcek - 0.06);
+                    oyun.style.setProperty('--mobil-fit', olcek.toFixed(2));
+                }
+
+                mobilMetniKutuyaSigdir(document.getElementById('soruBaslik'), 11);
+                document.querySelectorAll('#cevapButonlari .cevap-metni').forEach(metin => mobilMetniKutuyaSigdir(metin, 9));
+            });
+        }
+
+        window.addEventListener('resize', mobilEkranaSigdir);
+        window.addEventListener('orientationchange', mobilEkranaSigdir);
+        if(window.visualViewport) window.visualViewport.addEventListener('resize', mobilEkranaSigdir);
 
         function acScanner() { document.getElementById('kameraAlan').classList.remove('gizli'); html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false); html5QrcodeScanner.render(onScanSuccess, onScanFailure); }
         function kapatScanner() { if(html5QrcodeScanner) html5QrcodeScanner.clear(); document.getElementById('kameraAlan').classList.add('gizli'); }
@@ -166,7 +234,7 @@
         socket.on('katilma_basarili', () => { tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); gosterMesaj("✅ Bağlandın! Ekrana bak... 👀"); });
         socket.on('katilma_hatasi', (hataMsg) => { alert("❌ " + hataMsg); if(!urlPin) document.getElementById('pinInput').value = ""; });
 
-        function gosterMesaj(metin) { document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli'); const msg = document.getElementById('mesajAlani'); msg.innerText = metin; msg.classList.remove('gizli'); document.getElementById('bilgiBar').style.background = 'white'; document.getElementById('bilgiBar').style.color = 'black'; }
+        function gosterMesaj(metin) { document.getElementById('cevapButonlari').classList.add('gizli'); document.getElementById('soruBaslik').innerText = ""; document.getElementById('soruResmi').classList.add('gizli'); const msg = document.getElementById('mesajAlani'); msg.innerText = metin; msg.classList.remove('gizli'); document.getElementById('bilgiBar').style.background = 'white'; document.getElementById('bilgiBar').style.color = 'black'; mobilEkranaSigdir(); }
 
         socket.on('yeni_soru', (gelenSoru) => {
             tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('mesajAlani').classList.add('gizli');
@@ -175,10 +243,11 @@
             document.getElementById('durumIkonu').innerText = '⏳'; document.getElementById('sureEtiketi').innerText = 'saniye';
             const sayac = document.getElementById('mobilSoruSayaci'); sayac.classList.remove('gizli'); document.getElementById('mobilSoruSayaciMetni').innerText = `${gelenSoru.soruNo || 1}/${gelenSoru.toplamSoru || 1}`; document.getElementById('mobilKalanSoru').innerText = `• ${Math.max(Number(gelenSoru.kalanSoru) || 0, 0)} kaldı`;
             document.getElementById('soruBaslik').innerText = gelenSoru.soru;
-            const resim = document.getElementById('soruResmi'); if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
+            const resim = document.getElementById('soruResmi'); resim.onload = mobilEkranaSigdir; resim.onerror = mobilEkranaSigdir; if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.removeAttribute('src'); resim.classList.add('gizli'); }
             document.getElementById('txtA').innerText = gelenSoru.secenekler.A; document.getElementById('txtB').innerText = gelenSoru.secenekler.B; document.getElementById('txtC').innerText = gelenSoru.secenekler.C; document.getElementById('txtD').innerText = gelenSoru.secenekler.D;
             document.querySelectorAll('#cevapButonlari .btn').forEach(btn => { btn.disabled = false; btn.classList.remove('cevap-dogru', 'cevap-yanlis'); });
             document.getElementById('cevapButonlari').classList.remove('gizli');
+            mobilEkranaSigdir();
         });
 
         socket.on('cevap_yansit', (bilgi) => {
@@ -187,9 +256,10 @@
             tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('mesajAlani').classList.add('gizli');
             document.getElementById('bilgiBar').style.background = 'white'; document.getElementById('bilgiBar').style.color = 'black'; document.getElementById('durumIkonu').innerText = '✅'; document.getElementById('sureMetni').innerText = ''; document.getElementById('sureEtiketi').innerText = 'Cevap Yansıtıldı';
             document.getElementById('soruBaslik').innerText = aktifSoru.soru;
-            const resim = document.getElementById('soruResmi'); if(aktifSoru.gorsel) { resim.src = aktifSoru.gorsel; resim.classList.remove('gizli'); } else { resim.classList.add('gizli'); }
+            const resim = document.getElementById('soruResmi'); resim.onload = mobilEkranaSigdir; resim.onerror = mobilEkranaSigdir; if(aktifSoru.gorsel) { resim.src = aktifSoru.gorsel; resim.classList.remove('gizli'); } else { resim.removeAttribute('src'); resim.classList.add('gizli'); }
             document.getElementById('cevapButonlari').classList.remove('gizli');
             document.querySelectorAll('#cevapButonlari .btn').forEach(btn => { const dogruMu = btn.dataset.secenek === dogruCevap; btn.disabled = true; btn.classList.toggle('cevap-dogru', dogruMu); btn.classList.toggle('cevap-yanlis', !dogruMu); });
+            mobilEkranaSigdir();
         });
 
         socket.on('zaman_guncelle', (kalanSaniye) => { 
@@ -224,3 +294,4 @@
     </script>
 </body>
 </html>
+
