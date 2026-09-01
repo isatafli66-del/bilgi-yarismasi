@@ -735,14 +735,38 @@ Format:
     socketAsync(socket, 'soru_ekle_guncelle', async (data) => {
         const k = socket.kurumKodu; if(!k) return;
         const veriler = await loadKurumData(k);
-        const q = veriler.quizler[data.quizId];
+        const q = veriler.quizler[data?.quizId];
         if(q) {
-            if(!data.soru.id) {
-                data.soru.id = Date.now();
-                q.sorular.push(data.soru);
+            const hamSoru = data?.soru || {};
+            const soru = {
+                soru: String(hamSoru.soru || '').trim(),
+                gorsel: hamSoru.gorsel ? String(hamSoru.gorsel).trim() : null,
+                secenekler: {
+                    A: String(hamSoru.secenekler?.A || '').trim(),
+                    B: String(hamSoru.secenekler?.B || '').trim(),
+                    C: String(hamSoru.secenekler?.C || '').trim(),
+                    D: String(hamSoru.secenekler?.D || '').trim()
+                },
+                dogruCevap: String(hamSoru.dogruCevap || '').trim().toUpperCase()
+            };
+
+            if(!soru.soru || Object.values(soru.secenekler).some(secenek => !secenek) || !['A', 'B', 'C', 'D'].includes(soru.dogruCevap)) {
+                socket.emit('sistem_hata', 'Soru metni, dört cevap seçeneği ve doğru cevap eksiksiz olmalıdır.');
+                return;
+            }
+
+            const soruIdVar = hamSoru.id !== undefined && hamSoru.id !== null && hamSoru.id !== '';
+            if(!soruIdVar) {
+                soru.id = Date.now();
+                q.sorular.push(soru);
             } else {
-                const index = q.sorular.findIndex(s => s.id === data.soru.id);
-                if(index !== -1) q.sorular[index] = data.soru;
+                soru.id = hamSoru.id;
+                const index = q.sorular.findIndex(s => String(s.id) === String(hamSoru.id));
+                if(index === -1) {
+                    socket.emit('sistem_hata', 'Düzenlenmek istenen soru bulunamadı. Listeyi yenileyip tekrar deneyin.');
+                    return;
+                }
+                q.sorular[index] = soru;
             }
             await saveKurumData(k, 'quizler', veriler.quizler);
             io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
@@ -770,7 +794,7 @@ Format:
         }
         let yeniPin = Math.floor(100000 + Math.random() * 900000).toString();
         kurumAktifPin[k] = yeniPin;
-        oyunlar[yeniPin] = { kurumKodu: k, quizId: quizId, soruSirasi: -1, oyuncular: {}, zamanlayici: null, soruAktifMi: false, oyunDuraklatildi: false };
+        oyunlar[yeniPin] = { kurumKodu: k, quizId: quizId, soruSirasi: -1, oyuncular: {}, zamanlayici: null, soruAktifMi: false, oyunDuraklatildi: false, cevapYansitildi: false };
         io.to(`admin_${k}`).emit('oturum_basladi', { pin: yeniPin });
         io.to(`ekran_${k}`).emit('oturum_basladi', { pin: yeniPin });
         io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', {});
@@ -785,8 +809,10 @@ Format:
         const aktifQuiz = quizler[oyun.quizId];
         if(!aktifQuiz) return;
         if(oyun.zamanlayici) clearInterval(oyun.zamanlayici);
+        oyun.zamanlayici = null;
         oyun.soruAktifMi = false;
         oyun.oyunDuraklatildi = false;
+        oyun.cevapYansitildi = false;
         oyun.soruSirasi++;
         if (oyun.soruSirasi >= aktifQuiz.sorular.length) {
             io.to(`ekran_${k}`).emit('quiz_bitti_bekle');
@@ -795,8 +821,15 @@ Format:
         }
         const siradakiSoru = aktifQuiz.sorular[oyun.soruSirasi];
         oyun.soruAktifMi = true;
-        io.to(`ekran_${k}`).emit('yeni_soru', siradakiSoru);
-        io.to(`pin_${pin}`).emit('yeni_soru', siradakiSoru);
+        const { dogruCevap, ...guvenliSoru } = siradakiSoru;
+        const soruBilgisi = {
+            ...guvenliSoru,
+            soruNo: oyun.soruSirasi + 1,
+            toplamSoru: aktifQuiz.sorular.length,
+            kalanSoru: Math.max(aktifQuiz.sorular.length - (oyun.soruSirasi + 1), 0)
+        };
+        io.to(`ekran_${k}`).emit('yeni_soru', soruBilgisi);
+        io.to(`pin_${pin}`).emit('yeni_soru', soruBilgisi);
         let kalanSure = aktifQuiz.sure;
         io.to(`ekran_${k}`).emit('zaman_guncelle', kalanSure);
         io.to(`pin_${pin}`).emit('zaman_guncelle', kalanSure);
@@ -807,12 +840,47 @@ Format:
                 io.to(`pin_${pin}`).emit('zaman_guncelle', kalanSure);
                 if (kalanSure <= 0) {
                     clearInterval(oyun.zamanlayici);
+                    oyun.zamanlayici = null;
                     oyun.soruAktifMi = false;
-                    io.to(`ekran_${k}`).emit('sure_bitti', siradakiSoru.dogruCevap);
-                    io.to(`pin_${pin}`).emit('sure_bitti', siradakiSoru.dogruCevap);
+                    io.to(`ekran_${k}`).emit('sure_bitti');
+                    io.to(`pin_${pin}`).emit('sure_bitti');
                 }
             }
         }, 1000);
+    });
+
+    socketAsync(socket, 'cevap_yansit', async () => {
+        const k = socket.kurumKodu; if(!k) return;
+        const pin = kurumAktifPin[k];
+        const oyun = oyunlar[pin];
+        if(!oyun) {
+            socket.emit('admin_bildirim', 'Önce bir quiz başlatmalısınız.');
+            return;
+        }
+
+        const quizler = (await loadKurumData(k)).quizler;
+        const aktifQuiz = quizler[oyun.quizId];
+        const mevcutSoru = aktifQuiz?.sorular?.[oyun.soruSirasi];
+        if(!mevcutSoru) {
+            socket.emit('admin_bildirim', 'Yansıtılacak aktif bir soru bulunmuyor.');
+            return;
+        }
+        if(oyun.cevapYansitildi) return;
+
+        if(oyun.zamanlayici) clearInterval(oyun.zamanlayici);
+        oyun.zamanlayici = null;
+        oyun.soruAktifMi = false;
+        oyun.oyunDuraklatildi = false;
+        oyun.cevapYansitildi = true;
+
+        const cevapBilgisi = {
+            dogruCevap: mevcutSoru.dogruCevap,
+            soruNo: oyun.soruSirasi + 1,
+            toplamSoru: aktifQuiz.sorular.length,
+            kalanSoru: Math.max(aktifQuiz.sorular.length - (oyun.soruSirasi + 1), 0)
+        };
+        io.to(`ekran_${k}`).emit('cevap_yansit', cevapBilgisi);
+        io.to(`pin_${pin}`).emit('cevap_yansit', cevapBilgisi);
     });
 
     socketAsync(socket, 'cevap_gonder', async (secilenSecenek) => {

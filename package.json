@@ -1,9 +1,10 @@
 {
   "name": "bilgi-yarismasi",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/contract.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
