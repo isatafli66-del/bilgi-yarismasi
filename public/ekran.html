@@ -13,7 +13,8 @@
         #oyunAlani { --fit-scale: 1; width: 100%; height: 100vh; height: 100dvh; box-sizing: border-box; padding: calc(14px * var(--fit-scale)) clamp(14px, 3vw, 42px) calc(55px * var(--fit-scale)); display: flex; flex-direction: column; align-items: center; overflow: hidden; }
         #soruIcerigi { width: min(92vw, 1100px); height: 100%; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: calc(14px * var(--fit-scale)); z-index: 10; }
         #soruAlani { text-align: center; width: 100%; min-height: 0; margin: 0; display: flex; flex-direction: column; align-items: center; }
-        #soruSayaci { flex: 0 0 auto; width: fit-content; margin: 0 0 calc(10px * var(--fit-scale)) auto; background: rgba(255,255,255,0.95); color: #46178f; padding: calc(8px * var(--fit-scale)) calc(16px * var(--fit-scale)); border-radius: 999px; font-size: clamp(14px, calc(22px * var(--fit-scale)), 22px); font-weight: 800; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        #soruUstSatir { width: 100%; min-height: calc(82px * var(--fit-scale)); margin-bottom: calc(10px * var(--fit-scale)); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: clamp(10px, 1.8vw, 22px); }
+        #soruSayaci { justify-self: end; width: fit-content; margin: 0; background: rgba(255,255,255,0.95); color: #46178f; padding: calc(8px * var(--fit-scale)) calc(16px * var(--fit-scale)); border-radius: 999px; font-size: clamp(14px, calc(22px * var(--fit-scale)), 22px); font-weight: 800; white-space: nowrap; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
         #kalanSoruMetni { color: #666; font-size: 0.72em; margin-left: 8px; }
         #soruBaslik { width: 100%; max-height: min(23vh, calc(190px * var(--fit-scale))); box-sizing: border-box; overflow: hidden; overflow-wrap: anywhere; font-size: clamp(16px, calc(40px * var(--fit-scale)), 40px); line-height: 1.13; font-weight: bold; background: white; color: #333; padding: calc(22px * var(--fit-scale)) calc(26px * var(--fit-scale)); border-radius: 12px; box-shadow: 0 6px 0px #ccc; margin: 0 0 calc(12px * var(--fit-scale)); }
         #soruResmi { display: block; width: 100%; max-width: 100%; height: min(32vh, calc(330px * var(--fit-scale))); min-height: 0; object-fit: contain; background: rgba(0,0,0,0.2); border-radius: 12px; margin: 0; }
@@ -38,7 +39,12 @@
 
         .bekleme-ekrani { text-align: center; margin-top: 10vh; z-index: 10; }
         
-        #zamanlayici { position: absolute; left: 30px; top: 30px; background: #864cbf; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; border: 5px solid white; transition: 0.2s; z-index: 10; }
+        #zamanlayici { position: static; justify-self: start; flex: 0 0 auto; background: #864cbf; width: calc(82px * var(--fit-scale)); height: calc(82px * var(--fit-scale)); min-width: 56px; min-height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(24px, calc(36px * var(--fit-scale)), 36px); font-weight: bold; border: calc(4px * var(--fit-scale)) solid white; transition: 0.2s; z-index: 10; box-sizing: border-box; }
+        .kurum-logo-kutusu { box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; border: 1px solid rgba(255,255,255,0.8); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.28); }
+        .kurum-logo-kutusu img { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; }
+        #oyunKurumLogoKutusu { justify-self: end; width: clamp(110px, 18vw, 210px); height: calc(70px * var(--fit-scale)); min-height: 48px; padding: calc(6px * var(--fit-scale)) clamp(7px, 1vw, 12px); }
+        #genelKurumLogoKutusu { position: fixed; top: 20px; right: 30px; width: clamp(130px, 20vw, 240px); height: clamp(58px, 10vh, 92px); padding: 7px 12px; z-index: 30; }
+        body.oyun-aktif #genelKurumLogoKutusu { display: none !important; }
         
         .ses-btn { background: #e21b3c; border: none; color: white; padding: 15px 30px; font-size: 24px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 20px; box-shadow: 0 6px 0px #b81631; transition: 0.1s; }
         .ses-btn:active { transform: translateY(6px); box-shadow: none; }
@@ -55,22 +61,20 @@
             .grid-layout { gap: 10px; }
         }
 
-        @media (min-width: 761px) {
-            #soruBaslik { width: calc(100% - 120px); align-self: flex-end; }
-        }
-
         @media (max-width: 760px) {
             #soruIcerigi { width: 94vw; }
-            #zamanlayici { left: 10px; top: 10px; width: 66px; height: 66px; font-size: 28px; border-width: 3px; }
-            #ekranLogo { max-height: 62px !important; right: 10px !important; top: 10px !important; }
+            #soruUstSatir { min-height: 60px; gap: 7px; }
+            #zamanlayici { width: 60px; height: 60px; min-width: 60px; min-height: 60px; font-size: 25px; border-width: 3px; }
+            #soruSayaci { padding: 7px 10px; font-size: 14px; }
+            #kalanSoruMetni { display: none; }
+            #oyunKurumLogoKutusu { width: clamp(78px, 25vw, 118px); height: 50px; min-height: 50px; padding: 4px 6px; border-radius: 7px; }
+            #genelKurumLogoKutusu { top: 10px; right: 10px; width: min(38vw, 150px); height: 58px; padding: 5px 8px; }
         }
     </style>
 </head>
 <body>
 
-    <img id="ekranLogo" class="gizli" style="position: absolute; top: 20px; right: 30px; max-height: 100px; z-index: 9999; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); background: white; padding: 5px;">
-
-    <div id="zamanlayici" class="gizli">0</div>
+    <div id="genelKurumLogoKutusu" class="kurum-logo-kutusu gizli"><img id="ekranLogoGenel" src="" alt="Kurum logosu"></div>
     
     <div id="baslangicBekleme" class="bekleme-ekrani">
         <h1 style="font-size: 50px;">Oturum Başlatılıyor...</h1>
@@ -92,7 +96,7 @@
 
     <div id="oyunAlani" class="gizli">
         <div id="soruIcerigi">
-            <div id="soruAlani"><div id="soruSayaci" class="gizli"><span id="soruSayaciMetni">0/0</span><span id="kalanSoruMetni"></span></div><div id="soruBaslik">Soru Yükleniyor...</div><img id="soruResmi" src="" alt="Görsel"></div>
+            <div id="soruAlani"><div id="soruUstSatir"><div id="zamanlayici" class="gizli">0</div><div id="soruSayaci" class="gizli"><span id="soruSayaciMetni">0/0</span><span id="kalanSoruMetni"></span></div><div id="oyunKurumLogoKutusu" class="kurum-logo-kutusu gizli"><img id="ekranLogoOyun" src="" alt="Kurum logosu"></div></div><div id="soruBaslik">Soru Yükleniyor...</div><img id="soruResmi" src="" alt="Görsel"></div>
             <div id="secenekler" class="grid-layout"></div>
         </div>
     </div>
@@ -130,10 +134,26 @@
         const sesContext = new (window.AudioContext || window.webkitAudioContext)();
         const alkisSesi = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
 
-        socket.on('ayarlar_guncelle', (ayarlar) => {
-            const logo = document.getElementById('ekranLogo');
-            if(ayarlar.logo) { logo.src = ayarlar.logo; logo.classList.remove('gizli'); } else { logo.classList.add('gizli'); }
-        });
+        function kurumLogosunuGuncelle(logoVerisi) {
+            const hedefler = [
+                { kutu: document.getElementById('genelKurumLogoKutusu'), resim: document.getElementById('ekranLogoGenel') },
+                { kutu: document.getElementById('oyunKurumLogoKutusu'), resim: document.getElementById('ekranLogoOyun') }
+            ];
+
+            hedefler.forEach(({ kutu, resim }) => {
+                if(!logoVerisi) {
+                    kutu.classList.add('gizli');
+                    resim.removeAttribute('src');
+                    return;
+                }
+
+                resim.onload = () => { kutu.classList.remove('gizli'); anaEkranaSigdir(); };
+                resim.onerror = () => { kutu.classList.add('gizli'); resim.removeAttribute('src'); anaEkranaSigdir(); };
+                resim.src = logoVerisi;
+            });
+        }
+
+        socket.on('ayarlar_guncelle', (ayarlar) => kurumLogosunuGuncelle(ayarlar?.logo));
 
         document.getElementById('sesBtn').addEventListener('click', () => {
             sesAktif = true; if(sesContext.state === 'suspended') sesContext.resume();
@@ -146,6 +166,7 @@
         function konfetiPatlat() { const sure = 4000; const bitisZamani = Date.now() + sure; (function animasyon() { confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#ffffff'] }); if (Date.now() < bitisZamani) requestAnimationFrame(animasyon); }()); }
 
         function tumEkranlariGizle() {
+            document.body.classList.remove('oyun-aktif');
             document.getElementById('baslangicBekleme').classList.add('gizli'); document.getElementById('qrBeklemeEkrani').classList.add('gizli'); document.getElementById('araBekleme').classList.add('gizli'); document.getElementById('sonBekleme').classList.add('gizli');
             document.getElementById('oyunAlani').classList.add('gizli'); document.getElementById('skorBord').classList.add('gizli'); document.getElementById('podyumEkrani').classList.add('gizli'); document.getElementById('zamanlayici').classList.add('gizli');
             alkisSesi.pause(); alkisSesi.currentTime = 0;
@@ -200,6 +221,7 @@
 
         socket.on('yeni_soru', (gelenSoru) => {
             tumEkranlariGizle(); document.getElementById('oyunAlani').classList.remove('gizli'); document.getElementById('zamanlayici').classList.remove('gizli'); document.getElementById('zamanlayici').style.background = '#864cbf';
+            document.body.classList.add('oyun-aktif');
             const sayac = document.getElementById('soruSayaci'); sayac.classList.remove('gizli'); document.getElementById('soruSayaciMetni').innerText = `${gelenSoru.soruNo || 1}/${gelenSoru.toplamSoru || 1}`; document.getElementById('kalanSoruMetni').innerText = `• ${Math.max(Number(gelenSoru.kalanSoru) || 0, 0)} soru kaldı`;
             document.getElementById('soruBaslik').innerText = gelenSoru.soru; const resim = document.getElementById('soruResmi');
             resim.onload = anaEkranaSigdir; resim.onerror = anaEkranaSigdir;
@@ -213,6 +235,7 @@
             if(!dogruCevap) return;
             tumEkranlariGizle();
             document.getElementById('oyunAlani').classList.remove('gizli');
+            document.body.classList.add('oyun-aktif');
             document.getElementById('zamanlayici').classList.add('gizli');
             document.querySelectorAll('#secenekler .secenek-kart').forEach(kart => {
                 const dogruMu = kart.dataset.secenek === dogruCevap;
@@ -252,4 +275,3 @@
     </script>
 </body>
 </html>
-

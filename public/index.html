@@ -23,9 +23,15 @@
         #reader { width: 100%; }
         
         #oyunAlani { --mobil-fit: 1; flex: 1 1 auto; width: 100%; min-height: 0; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); gap: calc(8px * var(--mobil-fit)); background: #f2f2f2; padding: calc(8px * var(--mobil-fit)); overflow: hidden; }
-        #bilgiBar { min-width: 0; background: white; padding: calc(12px * var(--mobil-fit)); border-radius: 8px; font-weight: bold; font-size: clamp(13px, calc(18px * var(--mobil-fit)), 18px); margin: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        #bilgiBar { min-width: 0; background: white; padding: calc(8px * var(--mobil-fit)) calc(10px * var(--mobil-fit)); border-radius: 8px; font-weight: bold; font-size: clamp(13px, calc(18px * var(--mobil-fit)), 18px); margin: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.3s; display: grid; grid-template-columns: minmax(0, 1fr) minmax(64px, 110px) auto; align-items: center; gap: 8px; }
+        .bilgi-zaman { min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #mobilSoruSayaci { background: #46178f; color: white; padding: calc(6px * var(--mobil-fit)) calc(10px * var(--mobil-fit)); border-radius: 999px; font-size: clamp(11px, calc(15px * var(--mobil-fit)), 15px); white-space: nowrap; }
         #mobilKalanSoru { font-size: 11px; opacity: 0.85; margin-left: 4px; }
+        .mobil-kurum-logo-kutusu { box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; box-shadow: 0 2px 7px rgba(0,0,0,0.14); }
+        .mobil-kurum-logo-kutusu img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        #mobilKurumLogoKutusu { width: 100%; height: calc(36px * var(--mobil-fit)); min-height: 28px; padding: 3px 6px; justify-self: center; }
+        .giris-kurum-logo-kutusu { width: min(58vw, 210px); height: 90px; padding: 8px 12px; margin: 0 auto 14px; }
+        .sonuc-kurum-logo-kutusu { width: min(55%, 180px); height: 65px; padding: 6px 10px; margin: 0 auto 12px; }
         #soruBaslik { min-width: 0; max-height: min(18vh, 135px); box-sizing: border-box; overflow: hidden; overflow-wrap: anywhere; font-size: clamp(12px, calc(18px * var(--mobil-fit)), 18px); line-height: 1.18; font-weight: bold; margin: 0; padding: 0 calc(3px * var(--mobil-fit)); }
         #soruResmi { display: block; width: 100%; max-width: 100%; height: min(22vh, calc(155px * var(--mobil-fit))); min-height: 0; object-fit: contain; border-radius: 8px; margin: 0; }
         
@@ -63,6 +69,12 @@
             #altImza img { height: 14px !important; }
         }
 
+        @media (max-width: 380px) {
+            #bilgiBar { grid-template-columns: minmax(0, 1fr) 76px auto; gap: 5px; }
+            #mobilKurumLogoKutusu { padding: 2px 4px; }
+            #mobilKalanSoru { display: none; }
+        }
+
         @media (orientation: landscape) and (max-height: 600px) {
             #oyunAlani { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.65fr); grid-template-rows: auto auto minmax(0, 1fr); column-gap: 8px; }
             #bilgiBar { grid-column: 1 / -1; grid-row: 1; }
@@ -70,14 +82,14 @@
             #soruResmi { grid-column: 1; grid-row: 3; width: 100%; height: 100%; max-height: 100%; }
             .cevap-grid { grid-column: 2; grid-row: 2 / 4; }
             #mesajAlani { grid-column: 1 / -1; grid-row: 2 / 4; }
+            #mobilKurumLogoKutusu { height: calc(30px * var(--mobil-fit)); min-height: 24px; }
         }
     </style>
 </head>
 <body>
 
-    <img id="globalMobilLogo" class="gizli" src="" style="position: absolute; top: 10px; right: 10px; max-height: 40px; z-index: 9999; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); background: white; padding: 2px;">
-
     <div id="girisAlani">
+        <div data-kurum-logo-kutusu class="mobil-kurum-logo-kutusu giris-kurum-logo-kutusu gizli"><img data-kurum-logo src="" alt="Kurum logosu"></div>
         <div class="logo">Bilgi Yarışması</div>
         
         <div id="kameraAlan" class="gizli">
@@ -97,7 +109,7 @@
     </div>
 
     <div id="oyunAlani" class="gizli">
-        <div id="bilgiBar"><span><span id="durumIkonu">⏳</span> <span id="sureMetni">0</span> <span id="sureEtiketi">saniye</span></span><span id="mobilSoruSayaci" class="gizli"><span id="mobilSoruSayaciMetni">0/0</span><span id="mobilKalanSoru"></span></span></div>
+        <div id="bilgiBar"><span class="bilgi-zaman"><span id="durumIkonu">⏳</span> <span id="sureMetni">0</span> <span id="sureEtiketi">saniye</span></span><div id="mobilKurumLogoKutusu" data-kurum-logo-kutusu class="mobil-kurum-logo-kutusu gizli"><img data-kurum-logo src="" alt="Kurum logosu"></div><span id="mobilSoruSayaci" class="gizli"><span id="mobilSoruSayaciMetni">0/0</span><span id="mobilKalanSoru"></span></span></div>
         <h3 id="soruBaslik">Sıradaki soru bekleniyor...</h3>
         <img id="soruResmi" src="" class="gizli" alt="Görsel">
         
@@ -112,11 +124,13 @@
     </div>
 
     <div id="skorBord" class="gizli">
+        <div data-kurum-logo-kutusu class="mobil-kurum-logo-kutusu sonuc-kurum-logo-kutusu gizli"><img data-kurum-logo src="" alt="Kurum logosu"></div>
         <h3 style="text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0;">🏆 PUAN DURUMU</h3>
         <ul id="skorListesi"></ul>
     </div>
 
     <div id="podyumEkrani" class="gizli">
+        <div data-kurum-logo-kutusu class="mobil-kurum-logo-kutusu sonuc-kurum-logo-kutusu gizli"><img data-kurum-logo src="" alt="Kurum logosu"></div>
         <div class="kupa">🏆</div><h2 style="font-size: 28px; margin: 0;">YARIŞMA BİTTİ!</h2>
         <div id="kazananlarListesi"></div>
     </div>
@@ -204,11 +218,22 @@
         function onScanSuccess(decodedText) { try { let url = new URL(decodedText); let scannedPin = url.searchParams.get('pin'); if(scannedPin) { document.getElementById('pinInput').value = scannedPin; document.getElementById('pinKutusu').style.display = 'none'; kapatScanner(); alert("✅ QR Kod Okundu! Adınızı girip katılabilirsiniz."); } } catch(e) {} }
         function onScanFailure(error) {}
 
-        socket.on('ayarlar_guncelle', (ayarlar) => {
-            const globalLogo = document.getElementById('globalMobilLogo');
-            if(ayarlar.logo) { globalLogo.src = ayarlar.logo; globalLogo.classList.remove('gizli'); } 
-            else { globalLogo.classList.add('gizli'); }
-        });
+        function kurumLogolariniGuncelle(logoVerisi) {
+            document.querySelectorAll('[data-kurum-logo-kutusu]').forEach(kutu => {
+                const resim = kutu.querySelector('[data-kurum-logo]');
+                if(!logoVerisi) {
+                    kutu.classList.add('gizli');
+                    resim.removeAttribute('src');
+                    return;
+                }
+
+                resim.onload = () => { kutu.classList.remove('gizli'); mobilEkranaSigdir(); };
+                resim.onerror = () => { kutu.classList.add('gizli'); resim.removeAttribute('src'); mobilEkranaSigdir(); };
+                resim.src = logoVerisi;
+            });
+        }
+
+        socket.on('ayarlar_guncelle', (ayarlar) => kurumLogolariniGuncelle(ayarlar?.logo));
         
         document.getElementById('katilBtn').addEventListener('click', () => {
             const isim = document.getElementById('isimInput').value.trim();
@@ -294,4 +319,3 @@
     </script>
 </body>
 </html>
-
