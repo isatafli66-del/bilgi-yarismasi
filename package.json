@@ -1,15 +1,20 @@
 {
   "name": "bilgi-yarismasi",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/contract.test.js"
+    "test": "node test/contract.test.js && node --test test/havuz.test.js && node --test test/integration.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "overrides": {
+    "socket.io-parser": "^4.2.7"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }
-

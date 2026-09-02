@@ -3,6 +3,19 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
+const {
+    eskiQuizleriHavuzaAktar,
+    havuzaSoruEkle,
+    havuzdanSoruSil,
+    havuzuNormalizeEt,
+    havuzSorusunuKopyala,
+    havuzSorusundanQuizKopyasi,
+    quizSorusunuTasi,
+    quizSorusunuTemizle,
+    quizSorulariniSirala,
+    soruImzasi,
+    yeniId
+} = require('./soru-havuzu');
 
 const API_KEY = (process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
 
@@ -249,12 +262,18 @@ async function saveKurumlar(kurumlar) {
     await setAppData('kurumlar', kurumlar);
 }
 
-async function loadKurumData(kurum) {
+async function loadKurumData(kurum, havuzDahil = false) {
     const [quizler, ayarlar] = await Promise.all([
         getAppData(`quizler_${kurum}`, getVarsayilanQuizler()),
         getAppData(`ayarlar_${kurum}`, { logo: null })
     ]);
-    return { quizler, ayarlar };
+    if(!havuzDahil) return { quizler, ayarlar };
+
+    const [soruHavuzu, havuzMeta] = await Promise.all([
+        getAppData(`soru_havuzu_${kurum}`, { versiyon: 1, sorular: {}, sira: [] }),
+        getAppData(`soru_havuzu_meta_${kurum}`, { migrasyonV1: false })
+    ]);
+    return { quizler, ayarlar, soruHavuzu: havuzuNormalizeEt(soruHavuzu), havuzMeta };
 }
 
 async function saveKurumData(kurum, tur, data) {
@@ -264,8 +283,49 @@ async function saveKurumData(kurum, tur, data) {
 async function deleteKurumData(kurum) {
     await Promise.all([
         deleteAppData(`quizler_${kurum}`),
-        deleteAppData(`ayarlar_${kurum}`)
+        deleteAppData(`ayarlar_${kurum}`),
+        deleteAppData(`soru_havuzu_${kurum}`),
+        deleteAppData(`soru_havuzu_meta_${kurum}`)
     ]);
+}
+
+const havuzHazirlamaKilitleri = new Map();
+
+async function kurumHavuzunuHazirla(kurum) {
+    if(havuzHazirlamaKilitleri.has(kurum)) return await havuzHazirlamaKilitleri.get(kurum);
+
+    const hazirlamaIslemi = (async () => {
+        const veriler = await loadKurumData(kurum, true);
+        if(veriler.havuzMeta?.migrasyonV1) return veriler;
+
+        const sonuc = eskiQuizleriHavuzaAktar(veriler.quizler, veriler.soruHavuzu);
+        veriler.quizler = sonuc.quizler;
+        veriler.soruHavuzu = sonuc.havuz;
+        veriler.havuzMeta = {
+            migrasyonV1: true,
+            tamamlanmaTarihi: new Date().toISOString(),
+            eklenenSoruSayisi: sonuc.eklenen,
+            baglananQuizSorusuSayisi: sonuc.baglanan
+        };
+        await Promise.all([
+            saveKurumData(kurum, 'quizler', veriler.quizler),
+            saveKurumData(kurum, 'soru_havuzu', veriler.soruHavuzu),
+            saveKurumData(kurum, 'soru_havuzu_meta', veriler.havuzMeta)
+        ]);
+        return veriler;
+    })();
+
+    havuzHazirlamaKilitleri.set(kurum, hazirlamaIslemi);
+    try {
+        return await hazirlamaIslemi;
+    } finally {
+        havuzHazirlamaKilitleri.delete(kurum);
+    }
+}
+
+function havuzdaAyniSoruVarMi(havuz, hamSoru, haricId = null) {
+    const imza = soruImzasi(hamSoru);
+    return Object.values(havuz.sorular || {}).some(soru => String(soru.id) !== String(haricId || '') && soruImzasi(soru) === imza);
 }
 
 function sistemHatasi(socket, olay, error) {
@@ -627,8 +687,10 @@ io.on('connection', (socket) => {
         if(!kurumKodu) return;
         socket.kurumKodu = kurumKodu;
         socket.join(`admin_${kurumKodu}`);
-        const veriler = await loadKurumData(kurumKodu);
+        const veriler = await kurumHavuzunuHazirla(kurumKodu);
         socket.emit('verileri_guncelle', veriler.quizler);
+        socket.emit('soru_havuzu_guncelle', veriler.soruHavuzu);
+        socket.emit('soru_havuzu_migrasyon', veriler.havuzMeta);
         socket.emit('ayarlar_guncelle', veriler.ayarlar);
         let pin = kurumAktifPin[kurumKodu];
         if(pin && oyunlar[pin]) {
@@ -732,40 +794,144 @@ Format:
         io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
     });
 
+    socketAsync(socket, 'havuz_soru_ekle_guncelle', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        const hamSoru = data?.soru || {};
+        if(havuzdaAyniSoruVarMi(veriler.soruHavuzu, hamSoru, hamSoru.id)) {
+            socket.emit('sistem_hata', 'Aynı soru metni, seçenekler, doğru cevap ve görselle havuzda zaten bir soru bulunuyor.');
+            return;
+        }
+        const sonuc = havuzaSoruEkle(veriler.soruHavuzu, hamSoru);
+        veriler.soruHavuzu = sonuc.havuz;
+        await saveKurumData(k, 'soru_havuzu', veriler.soruHavuzu);
+        io.to(`admin_${k}`).emit('soru_havuzu_guncelle', veriler.soruHavuzu);
+        socket.emit('admin_bildirim', hamSoru.id ? 'Havuz sorusu güncellendi.' : 'Soru havuza kaydedildi.');
+    });
+
+    socketAsync(socket, 'havuz_soru_toplu_ekle', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        const sorular = Array.isArray(data?.sorular) ? data.sorular.slice(0, 100) : [];
+        let eklenen = 0;
+        let atlanan = 0;
+        for(const hamSoru of sorular) {
+            try {
+                if(havuzdaAyniSoruVarMi(veriler.soruHavuzu, hamSoru)) {
+                    atlanan += 1;
+                    continue;
+                }
+                const sonuc = havuzaSoruEkle(veriler.soruHavuzu, hamSoru);
+                veriler.soruHavuzu = sonuc.havuz;
+                eklenen += 1;
+            } catch (_) { atlanan += 1; }
+        }
+        if(eklenen > 0) await saveKurumData(k, 'soru_havuzu', veriler.soruHavuzu);
+        io.to(`admin_${k}`).emit('soru_havuzu_guncelle', veriler.soruHavuzu);
+        socket.emit('admin_bildirim', `${eklenen} soru havuza eklendi.${atlanan ? ` ${atlanan} eksik veya yinelenen soru atlandı.` : ''}`);
+    });
+
+    socketAsync(socket, 'havuz_soru_sil', async (soruId) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        veriler.soruHavuzu = havuzdanSoruSil(veriler.soruHavuzu, soruId);
+        await saveKurumData(k, 'soru_havuzu', veriler.soruHavuzu);
+        io.to(`admin_${k}`).emit('soru_havuzu_guncelle', veriler.soruHavuzu);
+        socket.emit('admin_bildirim', 'Soru yalnızca havuzdan silindi; quiz kopyaları korunuyor.');
+    });
+
+    socketAsync(socket, 'havuz_soru_kopyala', async (soruId) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        const sonuc = havuzSorusunuKopyala(veriler.soruHavuzu, soruId);
+        veriler.soruHavuzu = sonuc.havuz;
+        await saveKurumData(k, 'soru_havuzu', veriler.soruHavuzu);
+        io.to(`admin_${k}`).emit('soru_havuzu_guncelle', veriler.soruHavuzu);
+        socket.emit('admin_bildirim', 'Havuz sorusunun bağımsız bir kopyası oluşturuldu.');
+    });
+
+    socketAsync(socket, 'havuzdan_quize_kopyala', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        const quiz = veriler.quizler[data?.quizId];
+        const havuzSorusu = veriler.soruHavuzu.sorular[String(data?.soruId || '')];
+        if(!quiz || !havuzSorusu) throw new Error('Quiz veya havuz sorusu bulunamadı.');
+        quiz.sorular = Array.isArray(quiz.sorular) ? quiz.sorular : [];
+        const zatenVar = quiz.sorular.some(soru => String(soru.kaynakSoruId || '') === String(havuzSorusu.id));
+        if(zatenVar && !data?.tekraraIzinVer) {
+            socket.emit('sistem_hata', 'Bu havuz sorusu seçili quiz’de zaten bulunuyor. Tekrar eklemek için arayüzde onay verin.');
+            return;
+        }
+        const kopya = havuzSorusundanQuizKopyasi(havuzSorusu);
+        const hedefBelirtildi = data?.hedefIndex !== null && data?.hedefIndex !== undefined && data?.hedefIndex !== '';
+        const hedefIndex = hedefBelirtildi && Number.isInteger(Number(data.hedefIndex))
+            ? Math.max(0, Math.min(Number(data.hedefIndex), quiz.sorular.length))
+            : quiz.sorular.length;
+        quiz.sorular.splice(hedefIndex, 0, kopya);
+        await saveKurumData(k, 'quizler', veriler.quizler);
+        io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+        socket.emit('admin_bildirim', 'Soru havuzdan seçili quiz’e bağımsız kopya olarak eklendi.');
+    });
+
+    socketAsync(socket, 'havuzdan_quize_toplu_kopyala', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await kurumHavuzunuHazirla(k);
+        const quiz = veriler.quizler[data?.quizId];
+        if(!quiz) throw new Error('Toplu soru eklemek için geçerli bir quiz seçin.');
+        quiz.sorular = Array.isArray(quiz.sorular) ? quiz.sorular : [];
+        const idler = Array.isArray(data?.soruIdleri) ? [...new Set(data.soruIdleri.map(String))].slice(0, 200) : [];
+        let eklenen = 0;
+        let atlanan = 0;
+        for(const id of idler) {
+            const havuzSorusu = veriler.soruHavuzu.sorular[id];
+            if(!havuzSorusu) { atlanan += 1; continue; }
+            const zatenVar = quiz.sorular.some(soru => String(soru.kaynakSoruId || '') === id);
+            if(zatenVar && !data?.tekraraIzinVer) { atlanan += 1; continue; }
+            quiz.sorular.push(havuzSorusundanQuizKopyasi(havuzSorusu));
+            eklenen += 1;
+        }
+        if(eklenen > 0) await saveKurumData(k, 'quizler', veriler.quizler);
+        io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+        socket.emit('admin_bildirim', `${eklenen} soru quiz’e bağımsız kopya olarak eklendi.${atlanan ? ` ${atlanan} bulunamayan veya zaten bulunan soru atlandı.` : ''}`);
+    });
+
+    socketAsync(socket, 'quiz_sorulari_sirala', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await loadKurumData(k);
+        const quiz = veriler.quizler[data?.quizId];
+        if(!quiz) throw new Error('Sıralanmak istenen quiz bulunamadı.');
+        quiz.sorular = quizSorulariniSirala(quiz.sorular || [], data?.soruIdleri);
+        await saveKurumData(k, 'quizler', veriler.quizler);
+        io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+    });
+
+    socketAsync(socket, 'quiz_soruyu_tasi', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const veriler = await loadKurumData(k);
+        const quiz = veriler.quizler[data?.quizId];
+        if(!quiz) throw new Error('Sorusu taşınmak istenen quiz bulunamadı.');
+        quiz.sorular = quizSorusunuTasi(quiz.sorular || [], data?.soruId, data?.yeniIndex);
+        await saveKurumData(k, 'quizler', veriler.quizler);
+        io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+    });
+
     socketAsync(socket, 'soru_ekle_guncelle', async (data) => {
         const k = socket.kurumKodu; if(!k) return;
         const veriler = await loadKurumData(k);
         const q = veriler.quizler[data?.quizId];
         if(q) {
             const hamSoru = data?.soru || {};
-            const soru = {
-                soru: String(hamSoru.soru || '').trim(),
-                gorsel: hamSoru.gorsel ? String(hamSoru.gorsel).trim() : null,
-                secenekler: {
-                    A: String(hamSoru.secenekler?.A || '').trim(),
-                    B: String(hamSoru.secenekler?.B || '').trim(),
-                    C: String(hamSoru.secenekler?.C || '').trim(),
-                    D: String(hamSoru.secenekler?.D || '').trim()
-                },
-                dogruCevap: String(hamSoru.dogruCevap || '').trim().toUpperCase()
-            };
-
-            if(!soru.soru || Object.values(soru.secenekler).some(secenek => !secenek) || !['A', 'B', 'C', 'D'].includes(soru.dogruCevap)) {
-                socket.emit('sistem_hata', 'Soru metni, dört cevap seçeneği ve doğru cevap eksiksiz olmalıdır.');
-                return;
-            }
-
             const soruIdVar = hamSoru.id !== undefined && hamSoru.id !== null && hamSoru.id !== '';
             if(!soruIdVar) {
-                soru.id = Date.now();
+                const soru = quizSorusunuTemizle({ ...hamSoru, id: yeniId('quiz_soru') });
                 q.sorular.push(soru);
             } else {
-                soru.id = hamSoru.id;
                 const index = q.sorular.findIndex(s => String(s.id) === String(hamSoru.id));
                 if(index === -1) {
                     socket.emit('sistem_hata', 'Düzenlenmek istenen soru bulunamadı. Listeyi yenileyip tekrar deneyin.');
                     return;
                 }
+                const soru = quizSorusunuTemizle(hamSoru, q.sorular[index]);
                 q.sorular[index] = soru;
             }
             await saveKurumData(k, 'quizler', veriler.quizler);
@@ -778,9 +944,10 @@ Format:
         const veriler = await loadKurumData(k);
         const q = veriler.quizler[data.quizId];
         if(q) {
-            q.sorular = q.sorular.filter(s => s.id !== data.soruId);
+            q.sorular = q.sorular.filter(s => String(s.id) !== String(data.soruId));
             await saveKurumData(k, 'quizler', veriler.quizler);
             io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+            socket.emit('admin_bildirim', 'Soru yalnızca seçili quiz’den çıkarıldı; havuzdaki kaynak korunuyor.');
         }
     });
 

@@ -1,4 +1,10 @@
-# Tazzy Quiz 1.1.1
+# Tazzy Quiz 1.2.0
+
+Sürüm 1.2.0, önceki canlı yayın özelliklerini koruyarak kuruma özel merkezi soru
+havuzu, havuzdan quize bağımsız kopyalama, sürükle-bırak sıralama, filtreleme,
+toplu işlemler ve yapay zekâ önizleme düzenlemesi ekler. Ayrıntılı kurulum,
+veri yapısı, geçiş ve test bilgileri için
+[`README_SORU_HAVUZU_V120.md`](README_SORU_HAVUZU_V120.md) dosyasına bakın.
 
 Bu paket, çalışan Tazzy Quiz sisteminin mevcut görünümünü, Socket.IO oyun akışını,
 Supabase JSON kayıt yapısını ve kurum bazlı multi-tenant mantığını koruyarak dört yeni
@@ -189,4 +195,3 @@ Test şunları doğrular:
 Beklenmeyen bir durum olursa GitHub'da bu güncellemeden önceki commit'i yeniden
 deploy etmek yeterlidir. Veritabanı şeması değişmediği için ayrıca Supabase geri
 dönüş işlemi gerekmez.
-
