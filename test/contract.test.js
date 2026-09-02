@@ -7,27 +7,50 @@ const root = path.resolve(__dirname, '..');
 const oku = dosya => fs.readFileSync(path.join(root, dosya), 'utf8');
 
 const server = oku('server.js');
+const havuzModulu = oku('soru-havuzu.js');
 const admin = oku('public/admin.html');
+const master = oku('public/master.html');
 const ekran = oku('public/ekran.html');
 const oyuncu = oku('public/index.html');
 
 new vm.Script(server, { filename: 'server.js' });
+new vm.Script(havuzModulu, { filename: 'soru-havuzu.js' });
 
-for (const [ad, html] of [['admin.html', admin], ['ekran.html', ekran], ['index.html', oyuncu]]) {
+for (const [ad, html] of [['admin.html', admin], ['master.html', master], ['ekran.html', ekran], ['index.html', oyuncu]]) {
     const scriptler = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(eslesme => eslesme[1]);
     assert.ok(scriptler.length > 0, `${ad} içinde yerel JavaScript bulunamadı.`);
     scriptler.forEach((script, index) => new vm.Script(script, { filename: `${ad}#script-${index + 1}` }));
 }
 
-assert.ok(admin.includes('function soruDuzenle(index)'), 'Admin soru düzenleme işlevi eksik.');
-assert.ok(admin.includes('duzenlenenSoruId'), 'Düzenlenen soru kimliği korunmuyor.');
-for (const alan of ['m_soru', 'm_gorsel', 'm_a', 'm_b', 'm_c', 'm_d', 'm_dogru']) {
-    assert.ok(admin.includes(`id="${alan}"`), `Admin düzenleme alanı eksik: ${alan}`);
-}
+for (const alan of ['h_soru', 'h_gorsel', 'h_konu', 'h_zorluk', 'h_a', 'h_b', 'h_c', 'h_d', 'h_dogru']) assert.ok(admin.includes(`id="${alan}"`), `Havuz soru alanı eksik: ${alan}`);
+for (const alan of ['qs_soru', 'qs_gorsel', 'qs_a', 'qs_b', 'qs_c', 'qs_d', 'qs_dogru']) assert.ok(admin.includes(`id="${alan}"`), `Quiz kopyası düzenleme alanı eksik: ${alan}`);
+assert.ok(admin.includes('function havuzFormKaydet()'), 'Manuel soruyu havuza kaydetme işlevi eksik.');
+assert.ok(admin.includes('function quizSoruKaydet()'), 'Quiz içindeki bağımsız kopyayı düzenleme işlevi eksik.');
+assert.ok(admin.includes('draggable="true"'), 'Soru kartlarında sürükleme desteği eksik.');
+assert.ok(admin.includes('function havuzSurukleBaslat'), 'Havuzdan quize sürükleme işlevi eksik.');
+assert.ok(admin.includes('function quizSiralaSurukle'), 'Quiz içinde sürükleyerek sıralama işlevi eksik.');
+assert.ok(admin.includes('function quizSoruTasi'), 'Dokunmatik yukarı/aşağı sıralama işlevi eksik.');
+assert.ok(admin.includes('function siralamayiGeriAl'), 'Sıralamayı geri alma işlevi eksik.');
+assert.ok(admin.includes('function secilileriQuizeEkle'), 'Havuzdan toplu quiz kopyalama işlevi eksik.');
+assert.ok(admin.includes('function filtrelenmisHavuz'), 'Havuz arama/filtreleme işlevi eksik.');
+assert.ok(admin.includes('function aiTumunuHavuzaEkle'), 'AI sorularını topluca havuza ekleme işlevi eksik.');
+assert.ok(admin.includes("socket.emit('havuz_soru_ekle_guncelle'"), 'Admin havuz soru kaydetme olayını göndermiyor.');
+assert.ok(admin.includes("socket.emit('havuzdan_quize_kopyala'"), 'Admin bağımsız quiz kopyalama olayını göndermiyor.');
+assert.ok(admin.includes("socket.emit('quiz_sorulari_sirala'"), 'Admin quiz sıralama olayını göndermiyor.');
 assert.ok(admin.indexOf('id="btnCevapYansit"') < admin.indexOf('id="btnSiradakiSoru"'), 'Cevap yansıtma butonu Sonraki Soru butonundan önce değil.');
 assert.ok(admin.includes("socket.emit('cevap_yansit')"), 'Admin cevap yansıtma olayını göndermiyor.');
 
 assert.ok(server.includes("socketAsync(socket, 'cevap_yansit'"), 'Sunucuda cevap yansıtma olayı eksik.');
+assert.ok(server.includes('soru_havuzu_${kurum}'), 'Kuruma özel soru havuzu kayıt anahtarı eksik.');
+assert.ok(server.includes('soru_havuzu_meta_${kurum}'), 'Havuz geçiş meta kaydı eksik.');
+assert.ok(server.includes('eskiQuizleriHavuzaAktar'), 'Mevcut quiz sorularını havuza aktarma işlevi sunucuya bağlı değil.');
+assert.ok(server.includes("socketAsync(socket, 'havuz_soru_ekle_guncelle'"), 'Sunucuda havuz soru ekleme/düzenleme olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'havuz_soru_sil'"), 'Sunucuda havuzdan bağımsız silme olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'havuzdan_quize_kopyala'"), 'Sunucuda havuzdan bağımsız quiz kopyası olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'havuzdan_quize_toplu_kopyala'"), 'Sunucuda toplu quiz kopyalama olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'quiz_sorulari_sirala'"), 'Sunucuda quiz sıralama olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'quiz_soruyu_tasi'"), 'Sunucuda dokunmatik soru taşıma olayı eksik.');
+assert.ok(server.includes("socket.emit('soru_havuzu_guncelle'"), 'Admin bağlantısında havuz verisi gönderilmiyor.');
 assert.ok(server.includes('oyun.soruAktifMi = false;'), 'Cevap yansıtılırken yeni cevaplar kapatılmıyor.');
 assert.ok(server.includes('if(oyun.zamanlayici) clearInterval(oyun.zamanlayici);'), 'Cevap yansıtılırken zamanlayıcı güvenli biçimde durdurulmuyor.');
 assert.ok(server.includes('const { dogruCevap, ...guvenliSoru } = siradakiSoru;'), 'Doğru cevap normal soru paketinden ayrılmıyor.');
@@ -48,17 +71,31 @@ assert.ok(ekran.includes('--fit-scale'), 'Ana ekran içerik ölçeği eksik.');
 assert.ok(ekran.includes('function anaEkranaSigdir()'), 'Ana ekran otomatik sığdırma işlevi eksik.');
 assert.ok(ekran.includes('class="secenek-metin"'), 'Ana ekran uzun seçenek metinlerini bağımsız sığdırmıyor.');
 assert.ok(ekran.includes("window.addEventListener('resize', anaEkranaSigdir)"), 'Ana ekran boyut değişimini izlemiyor.');
+assert.ok(ekran.includes('id="soruUstSatir"'), 'Ana ekranda sayaç ve logo için ayrılmış üst satır eksik.');
+assert.ok(ekran.includes('id="oyunKurumLogoKutusu"'), 'Ana ekranda çakışmasız kurum logo kutusu eksik.');
+assert.ok(ekran.includes('function kurumLogosunuGuncelle(logoVerisi)'), 'Ana ekran logo yükleme/hata koruması eksik.');
+assert.ok(!ekran.includes('id="ekranLogo" class="gizli" style="position: absolute'), 'Ana ekranda eski çakışan logo yerleşimi hâlâ bulunuyor.');
 
 assert.ok(oyuncu.includes('height: 100dvh'), 'Yarışmacı ekranı dinamik pencere yüksekliğini kullanmıyor.');
 assert.ok(oyuncu.includes('--mobil-fit'), 'Yarışmacı ekranı içerik ölçeği eksik.');
 assert.ok(oyuncu.includes('function mobilEkranaSigdir()'), 'Yarışmacı ekranı otomatik sığdırma işlevi eksik.');
 assert.ok(oyuncu.includes("window.addEventListener('orientationchange', mobilEkranaSigdir)"), 'Yarışmacı ekranı yön değişimini izlemiyor.');
 assert.ok(!oyuncu.includes('-webkit-line-clamp: 3'), 'Yarışmacı cevapları hâlâ üç satırda kesiliyor.');
+assert.ok(oyuncu.includes('id="mobilKurumLogoKutusu"'), 'Yarışmacı bilgi çubuğunda kurum logo kutusu eksik.');
+assert.ok(oyuncu.includes('data-kurum-logo-kutusu'), 'Yarışmacı ekran durumlarına bağlı logo alanları eksik.');
+assert.ok(oyuncu.includes('function kurumLogolariniGuncelle(logoVerisi)'), 'Yarışmacı ekranı logo yükleme/hata koruması eksik.');
+assert.ok(!oyuncu.includes('id="globalMobilLogo"'), 'Yarışmacı ekranında eski çakışan logo yerleşimi hâlâ bulunuyor.');
+
+assert.ok(master.includes('logoBase64: seciliLogoBase64'), 'MASTER ekranı kurum logosunu sunucuya göndermiyor.');
+assert.ok(server.includes('veriler.ayarlar.logo = data.logoBase64'), 'Sunucu MASTER logosunu kurum ayarlarına kaydetmiyor.');
+assert.ok(server.includes("socket.emit('ayarlar_guncelle', veriler.ayarlar)"), 'Sunucu kurum ayarlarını bağlanan ekrana göndermiyor.');
 
 console.log('✓ Sunucu ve üç istemci dosyasının JavaScript sözdizimi geçerli');
-console.log('✓ Admin soru düzenleme alanları ve kaydetme sözleşmesi mevcut');
+console.log('✓ Merkezi soru havuzu, bağımsız quiz kopyası ve iki düzenleme formu mevcut');
+console.log('✓ Sürükle-bırak, toplu kopyalama, filtreleme, geri alma ve dokunmatik sıralama bağlı');
+console.log('✓ Eski quiz sorularının kuruma özel havuza kayıpsız geçiş sözleşmesi mevcut');
 console.log('✓ Cevap yansıtma olayı doğru/yanlış renkleriyle iki ekrana bağlı');
 console.log('✓ x/y ve kalan soru alanları sunucu–istemci sözleşmesinde mevcut');
 console.log('✓ Normal soru paketinde doğru cevap istemciye gönderilmiyor');
 console.log('✓ Ana ekran ve yarışmacı ekranı pencere boyutuna göre dinamik sığdırılıyor');
-
+console.log('✓ MASTER kurum logosu iki ekranda çakışmasız ve hataya dayanıklı gösteriliyor');
