@@ -1,18 +1,85 @@
-# Tazzy Quiz 1.2.0
+# Tazzy Quiz 1.3.0
 
-Sürüm 1.2.0, önceki canlı yayın özelliklerini koruyarak kuruma özel merkezi soru
-havuzu, havuzdan quize bağımsız kopyalama, sürükle-bırak sıralama, filtreleme,
-toplu işlemler ve yapay zekâ önizleme düzenlemesi ekler. Ayrıntılı kurulum,
-veri yapısı, geçiş ve test bilgileri için
+Sürüm 1.3.0; mevcut görünümü, Socket.IO canlı yayın akışını, Supabase JSON kayıt
+yapısını, kurum bazlı multi-tenant mantığını ve 1.2.0 soru havuzu özelliklerini
+koruyarak yarışmacı deneyimini ve canlı yayın yönetimini geliştirir.
+
+Bu sürümde yeni bir Supabase tablosu, kolon, migration veya Render ortam değişkeni
+gerekmez. Ayrıntılı 1.2.0 soru havuzu bilgileri için
 [`README_SORU_HAVUZU_V120.md`](README_SORU_HAVUZU_V120.md) dosyasına bakın.
 
-Bu paket, çalışan Tazzy Quiz sisteminin mevcut görünümünü, Socket.IO oyun akışını,
-Supabase JSON kayıt yapısını ve kurum bazlı multi-tenant mantığını koruyarak dört yeni
-özellik ekler.
+## 1.3.0 ile eklenen özellikler
 
-## Eklenen özellikler
+### 1. Yarışmacı ana sayfa, çıkış ve telefona kurulum
 
-### 1. Quiz sorularını düzenleme
+Yarışmacı ekranındaki menüden iki farklı işlem yapılabilir:
+
+- **Ana Sayfaya Dön:** Oyuncunun puanını ve cevaplarını aktif quiz süresince korur.
+  Aynı cihazdan **Son Oyuna Tek Dokunuşla Dön** seçildiğinde kaldığı oturuma yeniden
+  katılır.
+- **Quizden Çık:** Oyuncuyu aktif oyundan tamamen çıkarır ve bu cihazdaki son oyun
+  bilgisini temizler.
+
+Yarışmacı giriş sayfasında **Telefona Tazzy'yi Ekle** seçeneği vardır. Android ve
+uyumlu masaüstü tarayıcılarda sistem kurulum istemini açar. iPhone/iPad üzerinde
+**Paylaş → Ana Ekrana Ekle** yönergesini gösterir. Kurulan kısayol, Tazzy logosuyla
+bağımsız uygulama görünümünde açılır.
+
+### 2. Her aşamada güvenli quiz bitirme
+
+Admin **Canlı Yayın** sekmesindeki **Quizi Bitir ve Bekleme Ekranına Dön** butonu,
+quiz hangi aşamada olursa olsun aktif oyunu kapatır:
+
+- Ana ekran kurum logosunun bulunduğu bekleme görünümüne döner.
+- Bağlı yarışmacılar ana sayfaya yönlendirilir.
+- Eski PIN ile yeni katılım kapatılır.
+- Sonuçlar Supabase'e veya kalıcı bir dosyaya yazılmaz.
+
+### 3. Podyum, kişisel cevap özeti ve optik sonuç tablosu
+
+Podyum gösterildiğinde ana ekran mevcut podyum görünümünü korur. Yarışmacı ekranında
+podyumun altında **Cevaplarımı Görüntüle** butonu görünür. Her yarışmacı yalnızca
+kendi verdiği cevapları, doğru/yanlış/boş durumunu ve doğru cevap anahtarını görür.
+
+Admin **Sonuçlar** sekmesinde:
+
+- Üst satırda doğru cevap anahtarı,
+- Her yarışmacı için A/B/C/D işaretleri,
+- Doğru, yanlış ve boş cevap ayrımı,
+- Toplam puan ve doğru sayısı
+
+optik form benzeri tek tabloda gösterilir. Tablo o anda CSV olarak indirilebilir veya
+yazdırma menüsü üzerinden PDF'e kaydedilebilir. Sunucu yeniden başlatıldığında,
+sayfa yenilendiğinde ya da yeni oyun başladığında eski cevap dökümü geri çağrılmaz.
+
+### 4. Canlı yarışmacı cevap durumları ve manuel cevap
+
+Admin canlı yarışmacı listesi mevcut soru için aşağıdaki anlık durumlardan birini
+gösterir:
+
+- `○` Henüz cevap vermedi
+- `✓` Doğru cevap verdi
+- `✕` Yanlış cevap verdi
+
+Elle eklenmiş yarışmacılarda A/B/C/D düğmeleri bulunur. Yönetici tek tıkla cevap
+girebilir veya aynı soru açıkken seçimi değiştirebilir; puan önceki seçimden geri
+alınıp yeni seçime göre yeniden hesaplanır. Normal yarışmacı cihazlarında aynı soru
+için yalnızca ilk cevap kabul edilir; art arda tıklama puanı çoğaltmaz.
+
+### 5. Profesyonel admin sekmeleri
+
+Admin paneli çalışma anına göre üç sekmeye ayrılmıştır:
+
+- **Hazırlık:** Quiz, soru havuzu, manuel soru ve yapay zekâ hazırlıkları
+- **Canlı Yayın:** PIN, yayın kontrolleri, yarışmacılar ve anlık cevap durumları
+- **Sonuçlar:** Optik cevap tablosu, CSV indirme ve yazdırma/PDF
+
+Quiz başlatıldığında canlı yayın sekmesine, podyum gösterildiğinde sonuçlar sekmesine
+otomatik geçilir. Üst alandaki yayın durumu ve PIN bütün sekmelerde görünür.
+
+## Önceki özelliklerin korunması
+
+### Quiz sorularını düzenleme
 
 Admin panelindeki **Quiz İçeriği** bölümünde her sorunun yanında artık
 **Düzenle** butonu bulunur. Buton aşağıdaki alanların tamamını forma yükler:
@@ -28,7 +95,7 @@ eklenmiş sorularda aynı şekilde çalışır.
 
 Sunucu boş soru, eksik seçenek veya A/B/C/D dışında doğru cevap kaydetmez.
 
-### 2. Mevcut cevabı ana ve yarışmacı ekranlarına yansıtma
+### Mevcut cevabı ana ve yarışmacı ekranlarına yansıtma
 
 Admin canlı yayın kontrollerinde **Sonraki Soruya Geç** butonundan önce
 **Mevcut Sorunun Cevabını Yansıt** butonu bulunur.
@@ -45,7 +112,7 @@ Butona basıldığında:
 Doğru cevap artık normal `yeni_soru` paketinde istemcilere gönderilmez. Yalnızca
 admin cevap yansıtma işlemini yaptığında ayrı `cevap_yansit` olayıyla paylaşılır.
 
-### 3. Soru numarası ve kalan soru bilgisi
+### Soru numarası ve kalan soru bilgisi
 
 Ana ekranda ve yarışmacı ekranında:
 
@@ -55,7 +122,7 @@ Ana ekranda ve yarışmacı ekranında:
 
 biçiminde soru sırası gösterilir. Son soruda kalan soru değeri `0` olur.
 
-### 4. Ekran boyutuna göre otomatik sığdırma
+### Ekran boyutuna göre otomatik sığdırma
 
 Ana ekran ve yarışmacı ekranı; uzun soru metni, uzun cevaplar ve büyük görseller
 birlikte kullanıldığında açıldıkları pencerenin kullanılabilir yüksekliğine göre
@@ -76,10 +143,15 @@ server.js
 public/admin.html
 public/ekran.html
 public/index.html
+public/manifest.webmanifest
+public/service-worker.js
+public/icons/tazzy-192.png
+public/icons/tazzy-512.png
 package.json
 package-lock.json
 README.md
 test/contract.test.js
+test/live-v130.test.js
 ```
 
 Diğer mevcut dosyalar ve logolar pakette korunmuştur.
@@ -162,7 +234,7 @@ npm install
 npm test
 ```
 
-Test şunları doğrular:
+Test paketi şunları doğrular:
 
 - `server.js`, `admin.html`, `ekran.html` ve `index.html` JavaScript sözdizimi
 - Admin soru düzenleme alanları
@@ -172,6 +244,13 @@ Test şunları doğrular:
 - Doğru cevabın normal soru paketinden çıkarılması
 - Ana ekran ve yarışmacı ekranının dinamik pencere yüksekliğine sığdırılması
 - Telefon yön değişiminin ve uzun cevap metinlerinin kesilmeden gösterilmesinin korunması
+- Aynı yarışmacıdan aynı soruya ikinci cevabın puanı değiştirmemesi
+- Bağlantı kesilip yeniden katılınca puan ve cevapların korunması
+- Ana sayfaya dönme ile oyundan tamamen çıkmanın birbirinden ayrılması
+- Manuel oyuncuya tek tıkla cevap girilmesi ve cevap değişikliğinde puanın düzeltilmesi
+- Podyumda kişiye özel cevap dökümü ve admin optik sonuç verisi
+- Quiz bitirme olayının ana ekranı beklemeye, yarışmacıyı girişe yönlendirmesi
+- Bitirilen oyunun eski PIN'inin yeniden kullanılamaması
 
 ## Deploy sonrası kabul testi
 
@@ -188,7 +267,12 @@ Test şunları doğrular:
    olduğunu kontrol edin.
 10. **Sonraki Soruya Geç** ile sayacın arttığını ve sürenin yeniden başladığını
     kontrol edin.
-11. Ara skor ve podyum kontrollerini çalıştırarak mevcut akışın korunduğunu doğrulayın.
+11. Canlı oyuncu satırında cevap durumunun `✓` veya `✕` olduğunu doğrulayın.
+12. Elle bir yarışmacı ekleyin ve A/B/C/D düğmelerinden birine basın.
+13. Podyumu gösterin; yarışmacıda yalnızca kendi cevap dökümünü açın.
+14. Admin sonuçlar sekmesindeki optik tabloyu CSV olarak indirin.
+15. **Quizi Bitir** ile ana ekranın kurum logolu beklemeye, yarışmacının ana sayfaya
+    döndüğünü ve eski PIN'in kapandığını doğrulayın.
 
 ## Geri dönüş
 

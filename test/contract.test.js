@@ -12,6 +12,8 @@ const admin = oku('public/admin.html');
 const master = oku('public/master.html');
 const ekran = oku('public/ekran.html');
 const oyuncu = oku('public/index.html');
+const manifest = JSON.parse(oku('public/manifest.webmanifest'));
+const serviceWorker = oku('public/service-worker.js');
 
 new vm.Script(server, { filename: 'server.js' });
 new vm.Script(havuzModulu, { filename: 'soru-havuzu.js' });
@@ -90,6 +92,29 @@ assert.ok(master.includes('logoBase64: seciliLogoBase64'), 'MASTER ekranı kurum
 assert.ok(server.includes('veriler.ayarlar.logo = data.logoBase64'), 'Sunucu MASTER logosunu kurum ayarlarına kaydetmiyor.');
 assert.ok(server.includes("socket.emit('ayarlar_guncelle', veriler.ayarlar)"), 'Sunucu kurum ayarlarını bağlanan ekrana göndermiyor.');
 
+for(const sekme of ['sekmeHazirlik', 'sekmeCanli', 'sekmeSonuclar']) assert.ok(admin.includes(`id="${sekme}"`), `Yönetici sekmesi eksik: ${sekme}`);
+assert.ok(admin.includes('id="btnQuizBitir"'), 'Yönetici panelinde Quizi Bitir düğmesi eksik.');
+assert.ok(admin.includes("socket.emit('quiz_sonlandir')"), 'Yönetici paneli quiz sonlandırma olayını göndermiyor.');
+assert.ok(admin.includes('function manuelCevapGir'), 'Manuel yarışmacı için tek tık cevap girişi eksik.');
+assert.ok(admin.includes('function sonucEkraniniCiz'), 'Optik cevap anahtarı ekranı eksik.');
+assert.ok(admin.includes('function sonuclariCSVIndir'), 'Anlık sonuç indirme işlevi eksik.');
+assert.ok(server.includes("socketAsync(socket, 'admin_podyum_goster'"), 'Podyum sonuç hazırlama olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'quiz_sonlandir'"), 'Sunucuda her aşamada quiz bitirme olayı eksik.');
+assert.ok(server.includes("socketAsync(socket, 'admin_manuel_cevap_gir'"), 'Sunucuda manuel cevap girişi eksik.');
+assert.ok(server.includes("socket.emit('cevap_reddedildi'"), 'Aynı soruya birden fazla cevap koruması eksik.');
+assert.ok(server.includes("emit('oyuncu_sonuc'"), 'Kişiye özel cevap sonucu olayı eksik.');
+assert.ok(oyuncu.includes('id="oyunMenu"'), 'Yarışmacı ana sayfa/çıkış menüsü eksik.');
+assert.ok(oyuncu.includes('function anaSayfayaDon'), 'Yarışmacı ana sayfaya dönüş işlevi eksik.');
+assert.ok(server.includes("socket.on('oyuncu_ana_sayfa'"), 'Ana sayfaya dönüşte puan ve cevapları koruyan sunucu olayı eksik.');
+assert.ok(oyuncu.includes('id="cevaplariGosterBtn"'), 'Yarışmacı cevaplarını görüntüleme düğmesi eksik.');
+assert.ok(oyuncu.includes("navigator.serviceWorker.register('/service-worker.js')"), 'PWA servis çalışanı kaydı eksik.');
+assert.equal(manifest.display, 'standalone');
+assert.ok(manifest.icons.some(icon => icon.sizes === '192x192'));
+assert.ok(manifest.icons.some(icon => icon.sizes === '512x512'));
+assert.ok(serviceWorker.includes("startsWith('/socket.io/')"), 'Servis çalışanı canlı Socket.IO trafiğini önbellek dışında tutmuyor.');
+assert.ok(fs.existsSync(path.join(root, 'public/icons/tazzy-192.png')), '192px Tazzy PWA ikonu eksik.');
+assert.ok(fs.existsSync(path.join(root, 'public/icons/tazzy-512.png')), '512px Tazzy PWA ikonu eksik.');
+
 console.log('✓ Sunucu ve üç istemci dosyasının JavaScript sözdizimi geçerli');
 console.log('✓ Merkezi soru havuzu, bağımsız quiz kopyası ve iki düzenleme formu mevcut');
 console.log('✓ Sürükle-bırak, toplu kopyalama, filtreleme, geri alma ve dokunmatik sıralama bağlı');
@@ -99,3 +124,5 @@ console.log('✓ x/y ve kalan soru alanları sunucu–istemci sözleşmesinde me
 console.log('✓ Normal soru paketinde doğru cevap istemciye gönderilmiyor');
 console.log('✓ Ana ekran ve yarışmacı ekranı pencere boyutuna göre dinamik sığdırılıyor');
 console.log('✓ MASTER kurum logosu iki ekranda çakışmasız ve hataya dayanıklı gösteriliyor');
+console.log('✓ Sekmeli yönetim, anlık optik sonuç, manuel cevap ve quiz bitirme akışları mevcut');
+console.log('✓ Yarışmacı menüsü, kişisel cevap özeti ve Tazzy PWA kurulumu mevcut');

@@ -1,0 +1,26 @@
+{
+  "name": "Tazzy Quiz",
+  "short_name": "Tazzy",
+  "description": "Tazzy Quiz yarışmacı uygulaması",
+  "lang": "tr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#46178f",
+  "theme_color": "#46178f",
+  "icons": [
+    {
+      "src": "/icons/tazzy-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/tazzy-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

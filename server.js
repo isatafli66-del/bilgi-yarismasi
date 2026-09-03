@@ -394,6 +394,118 @@ app.get('/logout', (req, res) => { res.status(401).send(`<script>let xhr = new X
 const kurumAktifPin = {};
 const oyunlar = {};
 
+const CEVAP_HARFLERI = ['A', 'B', 'C', 'D'];
+
+function oyuncuKimligi(oyuncuToken, socketId) {
+    const temizToken = String(oyuncuToken || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+    return temizToken.length >= 8 ? `istemci_${temizToken}` : socketId;
+}
+
+function oyuncuYayinVerisi(id, oyuncu) {
+    return {
+        id,
+        isim: oyuncu.isim,
+        puan: Number(oyuncu.puan) || 0,
+        manuel: Boolean(oyuncu.manuel),
+        bagli: oyuncu.manuel ? true : oyuncu.bagli !== false
+    };
+}
+
+function puanlariYayinla(oyun) {
+    if(!oyun) return;
+    const liste = Object.entries(oyun.oyuncular).map(([id, oyuncu]) => oyuncuYayinVerisi(id, oyuncu));
+    io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', liste);
+    io.to(`pin_${oyun.pin}`).emit('puan_guncelle', liste);
+}
+
+function adminOyunculariGonder(oyun) {
+    if(!oyun) return;
+    const soruIndex = oyun.soruSirasi;
+    const oyuncular = {};
+    Object.entries(oyun.oyuncular).forEach(([id, oyuncu]) => {
+        const yanit = soruIndex >= 0 ? oyuncu.cevaplar?.[soruIndex] : null;
+        oyuncular[id] = {
+            ...oyuncuYayinVerisi(id, oyuncu),
+            mevcutYanit: yanit ? { yanitladi: true, secim: yanit.secim, dogruMu: Boolean(yanit.dogruMu) } : { yanitladi: false }
+        };
+    });
+    io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyuncular);
+}
+
+function adminOyunDurumuGonder(oyun, ek = {}) {
+    if(!oyun) return;
+    io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyun_durumu', {
+        aktif: true,
+        pin: oyun.pin,
+        quizId: oyun.quizId,
+        soruNo: Math.max(oyun.soruSirasi + 1, 0),
+        toplamSoru: Number(oyun.toplamSoru) || 0,
+        durum: oyun.durum || 'lobi',
+        ...ek
+    });
+}
+
+function oyunSonucunuHazirla(oyun, aktifQuiz) {
+    const sorular = oyun.soruKayitlari
+        .map((soru, index) => soru ? {
+            index,
+            soruNo: index + 1,
+            soru: soru.soru,
+            secenekler: soru.secenekler,
+            dogruCevap: soru.dogruCevap
+        } : null)
+        .filter(Boolean);
+    const oyuncular = Object.entries(oyun.oyuncular).map(([id, oyuncu]) => ({
+        ...oyuncuYayinVerisi(id, oyuncu),
+        cevaplar: sorular.map(soru => {
+            const yanit = oyuncu.cevaplar?.[soru.index];
+            return {
+                soruNo: soru.soruNo,
+                secim: yanit?.secim || null,
+                dogruMu: Boolean(yanit?.dogruMu),
+                dogruCevap: soru.dogruCevap
+            };
+        })
+    })).sort((a, b) => b.puan - a.puan || a.isim.localeCompare(b.isim, 'tr'));
+    return {
+        quizId: oyun.quizId,
+        quizAdi: aktifQuiz?.ad || 'Quiz',
+        pin: oyun.pin,
+        tamamlanmaZamani: new Date().toISOString(),
+        sorular,
+        oyuncular
+    };
+}
+
+function kisiselSonucuHazirla(tamSonuc, oyuncuId) {
+    const oyuncu = tamSonuc.oyuncular.find(kayit => kayit.id === oyuncuId);
+    if(!oyuncu) return null;
+    return {
+        quizAdi: tamSonuc.quizAdi,
+        oyuncu: { isim: oyuncu.isim, puan: oyuncu.puan },
+        cevaplar: tamSonuc.sorular.map(soru => {
+            const yanit = oyuncu.cevaplar.find(cevap => cevap.soruNo === soru.soruNo);
+            return {
+                soruNo: soru.soruNo,
+                soru: soru.soru,
+                secenekler: soru.secenekler,
+                secim: yanit?.secim || null,
+                dogruCevap: soru.dogruCevap,
+                dogruMu: Boolean(yanit?.dogruMu)
+            };
+        })
+    };
+}
+
+function oyunOdasiniKapat(oyun) {
+    if(!oyun) return;
+    if(oyun.zamanlayici) clearInterval(oyun.zamanlayici);
+    oyun.zamanlayici = null;
+    oyun.soruAktifMi = false;
+    if(kurumAktifPin[oyun.kurumKodu] === oyun.pin) delete kurumAktifPin[oyun.kurumKodu];
+    delete oyunlar[oyun.pin];
+}
+
 async function listAvailableGeminiModels() {
     if (!API_KEY) return [];
     try {
@@ -695,7 +807,9 @@ io.on('connection', (socket) => {
         let pin = kurumAktifPin[kurumKodu];
         if(pin && oyunlar[pin]) {
             socket.emit('oturum_basladi', { pin: pin });
-            socket.emit('admin_oyuncular_guncelle', oyunlar[pin].oyuncular);
+            adminOyunculariGonder(oyunlar[pin]);
+            adminOyunDurumuGonder(oyunlar[pin]);
+            if(oyunlar[pin].sonSonuc) socket.emit('admin_sonuclar_guncelle', oyunlar[pin].sonSonuc);
         }
     });
 
@@ -710,18 +824,61 @@ io.on('connection', (socket) => {
     });
 
     socketAsync(socket, 'oyuncu_katil', async (data) => {
-        let pin = data.pin.toString().trim();
-        let oyun = oyunlar[pin];
+        const pin = String(data?.pin || '').trim();
+        const oyun = oyunlar[pin];
         if(!oyun) { socket.emit('katilma_hatasi', 'Hatalı PIN Girdiniz!'); return; }
+        const isim = String(data?.isim || '').trim().slice(0, 60);
+        if(!isim) { socket.emit('katilma_hatasi', 'Oyuncu adı boş olamaz.'); return; }
+        const id = oyuncuKimligi(data?.oyuncuToken, socket.id);
         socket.pin = pin;
+        socket.oyuncuId = id;
         socket.join(`pin_${pin}`);
-        oyun.oyuncular[socket.id] = { isim: data.isim, puan: 0 };
+        const mevcut = oyun.oyuncular[id];
+        oyun.oyuncular[id] = mevcut ? {
+            ...mevcut,
+            isim,
+            socketId: socket.id,
+            bagli: true
+        } : {
+            isim,
+            puan: 0,
+            manuel: false,
+            bagli: true,
+            socketId: socket.id,
+            cevaplar: []
+        };
         const veriler = await loadKurumData(oyun.kurumKodu);
         socket.emit('ayarlar_guncelle', veriler.ayarlar);
-        socket.emit('katilma_basarili');
-        io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        socket.emit('katilma_basarili', { yenidenBaglandi: Boolean(mevcut) });
+        if(oyun.sonSonuc) {
+            socket.emit('quiz_bitti_final', oyun.sonSonuc.oyuncular.map(({ isim: ad, puan }) => ({ isim: ad, puan })));
+            socket.emit('oyuncu_sonuc', kisiselSonucuHazirla(oyun.sonSonuc, id));
+        }
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
+    });
+
+    socket.on('oyuncu_ayril', () => {
+        const oyun = oyunlar[socket.pin];
+        if(!oyun || !socket.oyuncuId || !oyun.oyuncular[socket.oyuncuId]) return;
+        delete oyun.oyuncular[socket.oyuncuId];
+        socket.leave(`pin_${socket.pin}`);
+        socket.pin = null;
+        socket.oyuncuId = null;
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
+    });
+
+    socket.on('oyuncu_ana_sayfa', () => {
+        const oyun = oyunlar[socket.pin];
+        const oyuncu = oyun?.oyuncular?.[socket.oyuncuId];
+        if(!oyun || !oyuncu || oyuncu.manuel) return;
+        oyuncu.bagli = false;
+        oyuncu.socketId = null;
+        socket.leave(`pin_${socket.pin}`);
+        socket.pin = null;
+        socket.oyuncuId = null;
+        adminOyunculariGonder(oyun);
     });
 
     // --- YAPAY ZEKA GÜNCELLEMESİ ---
@@ -954,17 +1111,39 @@ Format:
     // Oyun Akışı
     socketAsync(socket, 'quiz_baslat', async (quizId) => {
         const k = socket.kurumKodu; if(!k) return;
+        const quizler = (await loadKurumData(k)).quizler;
+        const aktifQuiz = quizler[quizId];
+        if(!aktifQuiz || !Array.isArray(aktifQuiz.sorular) || aktifQuiz.sorular.length === 0) {
+            socket.emit('sistem_hata', 'Canlıya almak için en az bir sorusu bulunan geçerli bir quiz seçin.');
+            return;
+        }
         let eskiPin = kurumAktifPin[k];
         if(eskiPin && oyunlar[eskiPin]) {
-            clearInterval(oyunlar[eskiPin].zamanlayici);
-            delete oyunlar[eskiPin];
+            io.to(`pin_${eskiPin}`).emit('quiz_sonlandirildi', { mesaj: 'Yeni bir quiz oturumu başlatıldı.' });
+            oyunOdasiniKapat(oyunlar[eskiPin]);
         }
         let yeniPin = Math.floor(100000 + Math.random() * 900000).toString();
         kurumAktifPin[k] = yeniPin;
-        oyunlar[yeniPin] = { kurumKodu: k, quizId: quizId, soruSirasi: -1, oyuncular: {}, zamanlayici: null, soruAktifMi: false, oyunDuraklatildi: false, cevapYansitildi: false };
+        oyunlar[yeniPin] = {
+            pin: yeniPin,
+            kurumKodu: k,
+            quizId,
+            toplamSoru: aktifQuiz.sorular.length,
+            soruSirasi: -1,
+            oyuncular: {},
+            soruKayitlari: [],
+            zamanlayici: null,
+            soruAktifMi: false,
+            oyunDuraklatildi: false,
+            cevapYansitildi: false,
+            durum: 'lobi',
+            sonSonuc: null,
+            baslangicZamani: Date.now()
+        };
         io.to(`admin_${k}`).emit('oturum_basladi', { pin: yeniPin });
         io.to(`ekran_${k}`).emit('oturum_basladi', { pin: yeniPin });
-        io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', {});
+        adminOyunculariGonder(oyunlar[yeniPin]);
+        adminOyunDurumuGonder(oyunlar[yeniPin]);
     });
 
     socketAsync(socket, 'soru_yolla', async () => {
@@ -982,12 +1161,21 @@ Format:
         oyun.cevapYansitildi = false;
         oyun.soruSirasi++;
         if (oyun.soruSirasi >= aktifQuiz.sorular.length) {
+            oyun.durum = 'tamamlandi';
             io.to(`ekran_${k}`).emit('quiz_bitti_bekle');
             io.to(`pin_${pin}`).emit('quiz_bitti_bekle');
+            adminOyunculariGonder(oyun);
+            adminOyunDurumuGonder(oyun);
             return;
         }
         const siradakiSoru = aktifQuiz.sorular[oyun.soruSirasi];
         oyun.soruAktifMi = true;
+        oyun.durum = 'soru';
+        oyun.soruKayitlari[oyun.soruSirasi] = {
+            soru: siradakiSoru.soru,
+            secenekler: { ...siradakiSoru.secenekler },
+            dogruCevap: siradakiSoru.dogruCevap
+        };
         const { dogruCevap, ...guvenliSoru } = siradakiSoru;
         const soruBilgisi = {
             ...guvenliSoru,
@@ -997,6 +1185,8 @@ Format:
         };
         io.to(`ekran_${k}`).emit('yeni_soru', soruBilgisi);
         io.to(`pin_${pin}`).emit('yeni_soru', soruBilgisi);
+        adminOyunculariGonder(oyun);
+        adminOyunDurumuGonder(oyun);
         let kalanSure = aktifQuiz.sure;
         io.to(`ekran_${k}`).emit('zaman_guncelle', kalanSure);
         io.to(`pin_${pin}`).emit('zaman_guncelle', kalanSure);
@@ -1009,8 +1199,11 @@ Format:
                     clearInterval(oyun.zamanlayici);
                     oyun.zamanlayici = null;
                     oyun.soruAktifMi = false;
+                    oyun.durum = 'sure_bitti';
                     io.to(`ekran_${k}`).emit('sure_bitti');
                     io.to(`pin_${pin}`).emit('sure_bitti');
+                    adminOyunculariGonder(oyun);
+                    adminOyunDurumuGonder(oyun);
                 }
             }
         }, 1000);
@@ -1039,6 +1232,7 @@ Format:
         oyun.soruAktifMi = false;
         oyun.oyunDuraklatildi = false;
         oyun.cevapYansitildi = true;
+        oyun.durum = 'cevap';
 
         const cevapBilgisi = {
             dogruCevap: mevcutSoru.dogruCevap,
@@ -1048,21 +1242,33 @@ Format:
         };
         io.to(`ekran_${k}`).emit('cevap_yansit', cevapBilgisi);
         io.to(`pin_${pin}`).emit('cevap_yansit', cevapBilgisi);
+        adminOyunculariGonder(oyun);
+        adminOyunDurumuGonder(oyun);
     });
 
     socketAsync(socket, 'cevap_gonder', async (secilenSecenek) => {
-        let pin = socket.pin;
-        let oyun = oyunlar[pin];
+        const pin = socket.pin;
+        const oyun = oyunlar[pin];
         if(!oyun || !oyun.soruAktifMi) return;
-        let oyuncu = oyun.oyuncular[socket.id];
+        const oyuncu = oyun.oyuncular[socket.oyuncuId];
         if(!oyuncu) return;
+        const secim = String(secilenSecenek || '').trim().toUpperCase();
+        if(!CEVAP_HARFLERI.includes(secim)) return;
+        oyuncu.cevaplar = Array.isArray(oyuncu.cevaplar) ? oyuncu.cevaplar : [];
+        if(oyuncu.cevaplar[oyun.soruSirasi]) {
+            socket.emit('cevap_reddedildi', 'Bu soru için cevabın zaten kaydedildi.');
+            return;
+        }
         const quizler = (await loadKurumData(oyun.kurumKodu)).quizler;
-        if (secilenSecenek === quizler[oyun.quizId].sorular[oyun.soruSirasi].dogruCevap) {
+        const dogruCevap = quizler[oyun.quizId].sorular[oyun.soruSirasi].dogruCevap;
+        const dogruMu = secim === dogruCevap;
+        oyuncu.cevaplar[oyun.soruSirasi] = { secim, dogruMu, cevapZamani: Date.now() };
+        if (dogruMu) {
             oyuncu.puan += quizler[oyun.quizId].puan;
         }
-        io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        socket.emit('cevap_alindi', { secim });
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
     });
 
     socket.on('sure_durdur_devam', (durum) => {
@@ -1080,13 +1286,48 @@ Format:
         }
     });
 
-    socket.on('admin_podyum_goster', () => {
-        let k = socket.kurumKodu;
-        let pin = kurumAktifPin[k];
-        if(pin && oyunlar[pin]) {
-            io.to(`ekran_${k}`).emit('quiz_bitti_final', Object.values(oyunlar[pin].oyuncular));
-            io.to(`pin_${pin}`).emit('quiz_bitti_final', Object.values(oyunlar[pin].oyuncular));
+    socketAsync(socket, 'admin_podyum_goster', async () => {
+        const k = socket.kurumKodu;
+        const pin = kurumAktifPin[k];
+        const oyun = oyunlar[pin];
+        if(!oyun) return;
+        if(oyun.zamanlayici) clearInterval(oyun.zamanlayici);
+        oyun.zamanlayici = null;
+        oyun.soruAktifMi = false;
+        oyun.oyunDuraklatildi = false;
+        oyun.durum = 'podyum';
+        const quizler = (await loadKurumData(k)).quizler;
+        const tamSonuc = oyunSonucunuHazirla(oyun, quizler[oyun.quizId]);
+        oyun.sonSonuc = tamSonuc;
+        const podyum = tamSonuc.oyuncular.map(({ isim, puan }) => ({ isim, puan }));
+        io.to(`ekran_${k}`).emit('quiz_bitti_final', podyum);
+        io.to(`pin_${pin}`).emit('quiz_bitti_final', podyum);
+        Object.entries(oyun.oyuncular).forEach(([id, oyuncu]) => {
+            if(!oyuncu.manuel && oyuncu.socketId) {
+                io.to(oyuncu.socketId).emit('oyuncu_sonuc', kisiselSonucuHazirla(tamSonuc, id));
+            }
+        });
+        io.to(`admin_${k}`).emit('admin_sonuclar_guncelle', tamSonuc);
+        adminOyunculariGonder(oyun);
+        adminOyunDurumuGonder(oyun);
+    });
+
+    socketAsync(socket, 'quiz_sonlandir', async () => {
+        const k = socket.kurumKodu;
+        const pin = kurumAktifPin[k];
+        const oyun = oyunlar[pin];
+        if(!oyun) {
+            socket.emit('admin_bildirim', 'Sonlandırılacak aktif bir quiz bulunmuyor.');
+            return;
         }
+        const quizler = (await loadKurumData(k)).quizler;
+        const tamSonuc = oyun.sonSonuc || oyunSonucunuHazirla(oyun, quizler[oyun.quizId]);
+        io.to(`admin_${k}`).emit('admin_sonuclar_guncelle', tamSonuc);
+        io.to(`ekran_${k}`).emit('quiz_sonlandirildi', { mesaj: 'Yeni yarışma bekleniyor...' });
+        io.to(`pin_${pin}`).emit('quiz_sonlandirildi', { mesaj: 'Quiz sona erdi. Ana sayfaya yönlendirildin.' });
+        io.to(`admin_${k}`).emit('oturum_bitti');
+        io.to(`admin_${k}`).emit('admin_oyun_durumu', { aktif: false, durum: 'bitti' });
+        oyunOdasiniKapat(oyun);
     });
 
     socket.on('admin_oyuncu_ekle', (isim) => {
@@ -1095,10 +1336,30 @@ Format:
         let oyun = oyunlar[pin];
         if(!oyun) return;
         const id = 'manuel_' + Date.now();
-        oyun.oyuncular[id] = { isim: isim, puan: 0 };
-        io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        oyun.oyuncular[id] = { isim: String(isim || '').trim().slice(0, 60), puan: 0, manuel: true, bagli: true, cevaplar: [] };
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
+    });
+
+    socketAsync(socket, 'admin_manuel_cevap_gir', async (data) => {
+        const k = socket.kurumKodu;
+        const pin = kurumAktifPin[k];
+        const oyun = oyunlar[pin];
+        const oyuncu = oyun?.oyuncular?.[data?.id];
+        const secim = String(data?.secim || '').trim().toUpperCase();
+        if(!oyun || !oyuncu?.manuel || oyun.soruSirasi < 0 || !CEVAP_HARFLERI.includes(secim)) return;
+        const quizler = (await loadKurumData(k)).quizler;
+        const quiz = quizler[oyun.quizId];
+        const soru = quiz?.sorular?.[oyun.soruSirasi];
+        if(!soru) return;
+        oyuncu.cevaplar = Array.isArray(oyuncu.cevaplar) ? oyuncu.cevaplar : [];
+        const onceki = oyuncu.cevaplar[oyun.soruSirasi];
+        if(onceki?.dogruMu) oyuncu.puan = Math.max(0, oyuncu.puan - (Number(quiz.puan) || 0));
+        const dogruMu = secim === soru.dogruCevap;
+        oyuncu.cevaplar[oyun.soruSirasi] = { secim, dogruMu, cevapZamani: Date.now(), manuel: true };
+        if(dogruMu) oyuncu.puan += Number(quiz.puan) || 0;
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
     });
 
     socket.on('admin_puan_duzenle', (data) => {
@@ -1107,9 +1368,8 @@ Format:
         let oyun = oyunlar[pin];
         if(!oyun || !oyun.oyuncular[data.id]) return;
         oyun.oyuncular[data.id].puan = parseInt(data.puan) || 0;
-        io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
     });
 
     socket.on('admin_oyuncu_ad_duzenle', (data) => {
@@ -1118,9 +1378,8 @@ Format:
         let oyun = oyunlar[pin];
         if(!oyun || !oyun.oyuncular[data.id]) return;
         oyun.oyuncular[data.id].isim = data.isim;
-        io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
     });
 
     socket.on('admin_oyuncu_sil', (id) => {
@@ -1129,19 +1388,18 @@ Format:
         let oyun = oyunlar[pin];
         if(!oyun || !oyun.oyuncular[id]) return;
         delete oyun.oyuncular[id];
-        io.to(`admin_${k}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-        io.to(`ekran_${k}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-        io.to(`pin_${pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        adminOyunculariGonder(oyun);
+        puanlariYayinla(oyun);
     });
 
     socket.on('disconnect', () => {
-        if (socket.pin && oyunlar[socket.pin]) {
-            let oyun = oyunlar[socket.pin];
-            if(oyun.oyuncular[socket.id]) {
-                delete oyun.oyuncular[socket.id];
-                io.to(`admin_${oyun.kurumKodu}`).emit('admin_oyuncular_guncelle', oyun.oyuncular);
-                io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
-                io.to(`pin_${socket.pin}`).emit('puan_guncelle', Object.values(oyun.oyuncular));
+        if (socket.pin && socket.oyuncuId && oyunlar[socket.pin]) {
+            const oyun = oyunlar[socket.pin];
+            const oyuncu = oyun.oyuncular[socket.oyuncuId];
+            if(oyuncu && !oyuncu.manuel) {
+                oyuncu.bagli = false;
+                oyuncu.socketId = null;
+                adminOyunculariGonder(oyun);
             }
         }
     });

@@ -77,7 +77,7 @@
     <div id="genelKurumLogoKutusu" class="kurum-logo-kutusu gizli"><img id="ekranLogoGenel" src="" alt="Kurum logosu"></div>
     
     <div id="baslangicBekleme" class="bekleme-ekrani">
-        <h1 style="font-size: 50px;">Oturum Başlatılıyor...</h1>
+        <h1 id="baslangicMesaj" style="font-size: 50px;">Oturum Başlatılıyor...</h1>
         <button id="sesBtn" class="ses-btn">🔊 Ses Efektlerini Aç</button>
     </div>
 
@@ -212,7 +212,7 @@
         if(window.visualViewport) window.visualViewport.addEventListener('resize', anaEkranaSigdir);
 
         socket.on('oturum_basladi', (data) => { 
-            tumEkranlariGizle(); document.getElementById('qrBeklemeEkrani').classList.remove('gizli'); document.getElementById('devEkraniPin').innerText = data.pin;
+            tumEkranlariGizle(); document.getElementById('baslangicMesaj').innerText = 'Oturum Başlatılıyor...'; document.getElementById('qrBeklemeEkrani').classList.remove('gizli'); document.getElementById('devEkraniPin').innerText = data.pin;
             document.getElementById('qrKutu').innerHTML = ""; 
             // YENİ DOMAİN'İ OTOMATİK ALGILAR
             const url = `https://${window.location.host}/?pin=${data.pin}`;
@@ -271,6 +271,13 @@
             if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style=\"font-size: 50px; color:#d89e00; margin-bottom:15px;\">🥇 1. ${oyuncular[0].isim} (${oyuncular[0].puan} Puan)</div>`;
             if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style=\"font-size: 35px; color:#bdc3c7; margin-bottom:10px;\">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan} Puan)</div>`;
             if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style=\"font-size: 25px; color:#cd7f32;\">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan} Puan)</div>`;
+        });
+
+        socket.on('quiz_sonlandirildi', (bilgi) => {
+            tumEkranlariGizle();
+            document.getElementById('baslangicMesaj').innerText = bilgi?.mesaj || 'Yeni yarışma bekleniyor...';
+            document.getElementById('baslangicBekleme').classList.remove('gizli');
+            document.getElementById('sesBtn').style.display = sesAktif ? 'none' : '';
         });
     </script>
 </body>
