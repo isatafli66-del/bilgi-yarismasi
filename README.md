@@ -1,4 +1,20 @@
-# Tazzy Quiz 1.4.0
+# Tazzy Quiz 1.4.1
+
+## 1.4.1 düzeltmeleri
+
+- Yönetici paneline Kullanım Kılavuzu sekmesi eklendi. Genel kullanım açıklamaları
+  bu sekmede toplandı; işlem sırasında gerekli hata ve onay mesajları korundu.
+- Havuzdaki kutuları işaretleyip Seçilenleri Havuzdan Sil ile toplu silin.
+  Görünenleri Seç filtreye uyanları seçer; Seçimi Kaldır tüm seçimleri temizler.
+  Filtre arkasındaki seçimler onayda belirtilir. Silme kalıcıdır; quizlerdeki
+  bağımsız kopyaları ve canlı oturumu değiştirmez. İşlem başına sınır 10000 sorudur.
+- Oyuna Gir düğmesinin tema rengiyle arka plana karışması düzeltildi.
+  Beyaz zemin, koyu yazı ve belirgin odak çerçevesi kullanılır. Giriş alanı küçük
+  ekranlarda kaydırılır; daralan yükseklikte butona erişilebilir.
+- PWA önbellek sürümü yenilendi. Yönetici ve telefon sayfalarını yenileyin;
+  ana ekrana eklenmiş uygulamayı gerekirse kapatıp yeniden açın.
+- Yeni tablo, ortam değişkeni veya migration yok. Mevcut Node 24 ayarı korunur.
+
 
 Bu sürüm mevcut Render + Supabase + Socket.IO mimarisini ve kurum ayrımını korur.
 Soru havuzu, bağımsız quiz kopyaları, sürükle-bırak sıralama, AI soru hazırlama,
@@ -154,7 +170,7 @@ ZIP'i açıp klasör **içeriğini** repo köküne yükleyin. Ortam sırlarını
 
 ## Test kapsamı
 
-`npm test`: sözdizimi/sözleşme kontrolleri ve 11 otomatik test.
+`npm test`: sözdizimi/sözleşme kontrolleri ve 13 otomatik test.
 Bağımsız havuz kopyası, sıralama, eski veri geçişi, normal ve manuel cevap, çift cevap
 engeli, kişisel/optik sonuç, quiz bitirme, gerçek HTTP yetki, tenant izolasyonu,
 şifre değişimi sonrası yetki iptali, eski soru cevabı reddi, tema izolasyonu,

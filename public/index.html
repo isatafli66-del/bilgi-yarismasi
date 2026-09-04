@@ -18,7 +18,10 @@
         body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f2f2f2; margin: 0; height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
         .gizli { display: none !important; }
         
-        #girisAlani { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #46178f; color: white; padding: 20px; }
+        #girisAlani { flex: 1 1 auto; min-height: 0; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; background: #46178f; color: white; padding: max(20px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); }
+        #girisAlani::before, #girisAlani::after { content: ""; flex: 1 0 0; min-height: 8px; }
+        #girisAlani > * { flex-shrink: 0; }
+        #girisAlani input:focus-visible, #girisAlani button:focus-visible { outline: 3px solid #ffdb66; outline-offset: 3px; }
         .logo { font-size: 40px; font-weight: bold; margin-bottom: 20px; }
         .giris-kutu { display: flex; flex-direction: column; width: 90%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
         input { padding: 15px; font-size: 20px; border-radius: 4px; border: none; text-align: center; font-weight: bold; outline: none; box-sizing: border-box; width: 100%; }
@@ -108,7 +111,7 @@
             #mobilKurumLogoKutusu { height: calc(30px * var(--mobil-fit)); min-height: 24px; }
         }
     </style>
-    <link rel="stylesheet" href="/v140.css">
+    <link rel="stylesheet" href="/v140.css?v=1.4.1">
 </head>
 <body>
 
@@ -125,12 +128,12 @@
         </div>
 
         <div class="giris-kutu">
-            <input type="text" id="isimInput" placeholder="Adın veya Takım Adı">
+            <input type="text" id="isimInput" aria-label="Adın veya takım adı" autocomplete="nickname" placeholder="Adın veya Takım Adı">
             <div class="satir-yatay" id="pinKutusu">
-                <input type="number" id="pinInput" placeholder="Oyun PIN (6 Hane)" style="width: 60%;">
+                <input type="number" id="pinInput" aria-label="Altı haneli oyun PIN kodu" inputmode="numeric" placeholder="Oyun PIN" style="width: 60%;">
                 <button class="qr-btn" onclick="acScanner()">📷 QR Okut</button>
             </div>
-            <button class="katil-btn" id="katilBtn">Oyuna Gir</button>
+            <button class="katil-btn" id="katilBtn" type="button">Oyuna Gir</button>
             <button id="sonOyunaDonBtn" class="son-oyun-btn gizli" type="button">↩ Son Oyuna Tek Dokunuşla Dön</button>
         </div>
     </div>

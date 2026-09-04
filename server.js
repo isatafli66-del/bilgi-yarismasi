@@ -389,7 +389,7 @@ function socketAsync(socket, olay, handler) {
 const girisDenemeleri = new Map();
 const ADMIN_SOCKET_OLAYLARI = new Set([
     'admin_giris', 'ai_soru_uret', 'quiz_ekle_guncelle', 'quiz_sil',
-    'havuz_soru_ekle_guncelle', 'havuz_soru_toplu_ekle', 'havuz_soru_sil', 'havuz_soru_kopyala',
+    'havuz_soru_ekle_guncelle', 'havuz_soru_toplu_ekle', 'havuz_soru_toplu_sil', 'havuz_soru_sil', 'havuz_soru_kopyala',
     'havuzdan_quize_kopyala', 'havuzdan_quize_toplu_kopyala', 'quiz_sorulari_sirala', 'quiz_soruyu_tasi',
     'soru_ekle_guncelle', 'soru_sil', 'quiz_baslat', 'prova_baslat', 'soru_yolla', 'cevap_yansit',
     'sure_durdur_devam', 'admin_skor_goster', 'admin_podyum_goster', 'quiz_sonlandir',
@@ -1436,6 +1436,29 @@ Format:
         socket.emit('admin_bildirim', 'Soru yalnızca havuzdan silindi; quiz kopyaları korunuyor.');
     });
 
+    socketAsync(socket, 'havuz_soru_toplu_sil', async (data) => {
+        const k = socket.kurumKodu; if(!k) return;
+        const ids = data?.soruIdleri;
+        if(!Array.isArray(ids) || !ids.length || ids.length > 10000 ||
+            ids.some(id => typeof id !== 'string' || !id.trim() || id.length > 160)) {
+            throw new Error('Silmek için 1–10000 geçerli soru seçin.');
+        }
+        const veriler = await kurumHavuzunuHazirla(k);
+        const secilenler = new Set(ids);
+        const sorular = { ...veriler.soruHavuzu.sorular };
+        let silinenSayi = 0;
+        for(const id of secilenler) {
+            if(Object.hasOwn(sorular, id)) { delete sorular[id]; silinenSayi++; }
+        }
+        const havuz = { ...veriler.soruHavuzu, sorular,
+            sira: veriler.soruHavuzu.sira.filter(id => !secilenler.has(String(id))) };
+        // One tenant-scoped write; independent quiz copies and live snapshots are untouched.
+        if(silinenSayi) await saveKurumData(k, 'soru_havuzu', havuz);
+        io.to(`admin_${k}`).emit('soru_havuzu_guncelle', havuz);
+        socket.emit('havuz_toplu_silindi', { silinenSayi });
+        socket.emit('admin_bildirim', `${silinenSayi} soru havuzdan silindi. Quiz kopyaları korundu.`);
+    });
+
     socketAsync(socket, 'havuz_soru_kopyala', async (soruId) => {
         const k = socket.kurumKodu; if(!k) return;
         const veriler = await kurumHavuzunuHazirla(k);
@@ -1934,7 +1957,7 @@ process.once('SIGTERM', guvenliKapanis);
 process.once('SIGINT', guvenliKapanis);
 
 const PORT = process.env.PORT || 3000;
-app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.4.0' }));
+app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.4.1' }));
 aktifOyunlariYukle().then(() => server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor. Port: ${PORT}`);
     console.log(`Veri saklama modu: ${STORAGE_PROVIDER}`);

@@ -3,7 +3,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if(text !== undefined) node.textContent = text; if(className) node.className = className; return node; };
     const button = (text, action, className = '') => { const node = el('button', text, className); node.type = 'button'; node.addEventListener('click', action); return node; };
     const prep = el('section', undefined, 't140-panel'); prep.id = 'yayinKontrolMerkezi';
-    prep.append(el('h2', 'Yayın Öncesi Kontrol Merkezi'), el('p', 'Seçili quizin içeriğini, ana ekran bağlantısını ve görsellerini yayına geçmeden kontrol edin.', 't140-muted'));
+    prep.append(el('h2', 'Yayın Öncesi Kontrol Merkezi'));
     const result = el('div', undefined, 't140-grid'); result.id = 'yayinKontrolSonuclari';
     const actions = el('div', undefined, 't140-actions');
     const checkButton = button('✓ Yayın Kontrolünü Çalıştır', check, 'btn-yesil');
@@ -71,7 +71,7 @@
 
     const countdown = el('div', undefined, 't140-actions');
     const countdownInput = el('input'); countdownInput.type = 'number'; countdownInput.min = '0'; countdownInput.max = '3600'; countdownInput.value = '60'; countdownInput.style.width = '90px'; countdownInput.setAttribute('aria-label','Başlangıç sayacı saniye');
-    countdown.append(el('label','Başlangıç sayacı (saniye)'), countdownInput, button('Sayacı Göster', () => socket.emit('lobi_sayaci_ayarla', Number(countdownInput.value))), button('Sayacı Kapat', () => socket.emit('lobi_sayaci_ayarla', 0), 'btn-gri'), el('small','Süre dolunca sorular otomatik başlamaz.','t140-muted'));
+    countdown.append(el('label','Başlangıç sayacı (saniye)'), countdownInput, button('Sayacı Göster', () => socket.emit('lobi_sayaci_ayarla', Number(countdownInput.value))), button('Sayacı Kapat', () => socket.emit('lobi_sayaci_ayarla', 0), 'btn-gri'));
     live.append(countdown);
 
     const theme = el('details', undefined, 't140-panel'); theme.append(el('summary','Kurum Teması ve Etkinlik Metinleri'));
@@ -85,7 +85,7 @@
     theme.append(themeGrid,themeActions);document.getElementById('sekmeHazirlik').append(theme);
     socket.on('ayarlar_guncelle',data=>Object.entries(themeFields).forEach(([key,input])=>input.value=data[key]||''));
 
-    const templates = el('section', undefined, 't140-panel'); templates.append(el('h2', 'Etkinlik Şablonları'), el('p', 'Beş örnek soruyla bağımsız bir etkinlik taslağı oluşturur. Hazır havuzunuzdan sorular ekleyin ve yayın öncesinde içerikleri kontrol edin.', 't140-muted'));
+    const templates = el('section', undefined, 't140-panel'); templates.append(el('h2', 'Etkinlik Şablonları'));
     const templateGrid = el('div', undefined, 't140-grid');
     for(const [id, title, text] of [['otel','Otelcilik','Misafir deneyimi · 25 saniye'],['takim','Takım Çalışması','İletişim etkinliği · 20 saniye'],['genel','Genel Kültür','Eğlenceli yarışma · 20 saniye'],['oryantasyon','Oryantasyon','İş birliği ve iletişim · 25 saniye']]) {
         const item = el('div', undefined, 't140-template'); item.append(el('h3', title), el('p', text, 't140-muted'), button('Taslak Oluştur', () => socket.emit('sablondan_quiz_olustur', id))); templateGrid.append(item);
