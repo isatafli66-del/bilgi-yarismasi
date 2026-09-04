@@ -145,7 +145,8 @@ Mevcut ortam değişkenleri:
 `MASTER_SIFRE`, `NODE_VERSION`, `API_KEY`, `GEMINI_MODEL`.
 Yeni zorunlu değişken yoktur. İstenirse güçlü bağımsız `SESSION_SECRET` kullanılabilir;
 yoksa mevcut MASTER_SIFRE imza anahtarıdır. Boş anahtarla sunucu başlamaz.
-Node 22/24 LTS tavsiye edilir; mevcut üretim Node ayarı bu sürümde değiştirilmez.
+Üretim NODE_VERSION değeri bu sürümün güvenlik kontrolünde 18'den 24 LTS'ye yükseltilmiştir.
+Yerel testler Node 24 ile yapılır; destek dışı Node 18/20 kullanmayın.
 
 Yerelde `STORAGE_PROVIDER=file`, `MASTER_SIFRE` ve ayrı `DATA_DIR` belirleyin.
 Dosya modu yalnızca yerel test içindir; Render geçici dosya sisteminde kullanmayın.
