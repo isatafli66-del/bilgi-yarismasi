@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.env
+.env.*
+!.env.example
+data/
+aktif_oyun_*.json
+public/_qa*.html
+test/ui-fixture.js

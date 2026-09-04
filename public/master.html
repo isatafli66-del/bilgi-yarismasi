@@ -49,6 +49,7 @@
         .footer-logo { text-align: center; margin-top: 50px; opacity: 0.9; }
         .footer-logo img { height: 40px; }
     </style>
+    <link rel="stylesheet" href="/v140.css">
 </head>
 <body>
 
@@ -106,7 +107,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io({ autoConnect: false });
         let seciliLogoBase64 = undefined; // undefined = logoya dokunma, null = logoyu sil, string = yeni logo
         
         socket.emit('master_veri_istek');
@@ -147,20 +148,19 @@
                 else if(lisansBittiMi) durumMetni = "<span class='durum-etiket' style='color:#ef4444; border-color:#ef4444;'>Lisans Dolmuş</span>";
                 else durumMetni = "<span class='durum-etiket' style='color:#10b981; border-color:#10b981;'>Aktif</span>";
 
-                liste.innerHTML += `
-                    <div class="kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}">
-                        <div class="kurum-bilgi">
-                            <strong>${kodu}</strong>
-                            <span>🔑 Şifre: ${k.sifre}</span>
-                            <span>📅 Bitiş: ${k.bitis}</span>
-                            ${durumMetni}
-                        </div>
-                        <div class="aksiyon-btnler">
-                            <button class="btn-kucuk btn-sari" onclick="duzenle('${kodu}', '${k.sifre}', '${k.bitis}', ${k.aktif})">Düzenle</button>
-                            <button class="btn-kucuk btn-kirmizi" onclick="kurumSil('${kodu}')">Sil</button>
-                        </div>
-                    </div>
-                `;
+                const kart = document.createElement('div');
+                kart.className = `kurum-kart ${(!k.aktif || lisansBittiMi) ? 'pasif' : ''}`;
+                const bilgi = document.createElement('div'); bilgi.className = 'kurum-bilgi';
+                for(const [tag, text] of [['strong', kodu], ['span', '🔑 Şifre: ••••••••'], ['span', `📅 Bitiş: ${k.bitis}`]]) {
+                    const el = document.createElement(tag); el.textContent = text; bilgi.appendChild(el);
+                }
+                const durum = document.createElement('span'); durum.innerHTML = durumMetni; bilgi.appendChild(durum);
+                const aksiyon = document.createElement('div'); aksiyon.className = 'aksiyon-btnler';
+                for(const [text, cls, action] of [['Düzenle', 'btn-sari', () => duzenle(kodu, k.sifre, k.bitis, k.aktif)], ['Sil', 'btn-kirmizi', () => kurumSil(kodu)]]) {
+                    const button = document.createElement('button'); button.className = `btn-kucuk ${cls}`; button.textContent = text;
+                    button.addEventListener('click', action); aksiyon.appendChild(button);
+                }
+                kart.append(bilgi, aksiyon); liste.appendChild(kart);
             });
         });
 
@@ -202,5 +202,7 @@
 
         function kurumSil(kodu) { if(confirm(`DİKKAT! ${kodu} kurumunun sisteme girişini tamamen silmek istiyor musunuz?`)) { socket.emit('master_kurum_sil', kodu); } }
     </script>
+    <script src="/v140-master.js"></script>
+    <script>socket.connect();</script>
 </body>
 </html>

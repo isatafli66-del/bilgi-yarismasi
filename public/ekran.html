@@ -71,6 +71,7 @@
             #genelKurumLogoKutusu { top: 10px; right: 10px; width: min(38vw, 150px); height: 58px; padding: 5px 8px; }
         }
     </style>
+    <link rel="stylesheet" href="/v140.css">
 </head>
 <body>
 
@@ -122,7 +123,8 @@
         const KURUM_KODU = urlParams.get('kurum');
         if(!KURUM_KODU) { document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px;'>Hata: Kurum Kodu Bulunamadı!</h1>"; }
 
-        const socket = io();
+        const socket = io({ autoConnect: false });
+        function ekranHtmlGuvenli(value) { const el = document.createElement('span'); el.textContent = String(value ?? ''); return el.innerHTML; }
         socket.emit('ekran_giris', KURUM_KODU);
 
         // Kopma durumunda otomatik kimlik bildirme
@@ -197,7 +199,7 @@
                 document.querySelectorAll('#secenekler .secenek-metin').forEach(metin => metin.style.fontSize = '');
 
                 let olcek = 1;
-                const tasiyor = () => icerik.scrollHeight > icerik.clientHeight + 1 || icerik.scrollWidth > icerik.clientWidth + 1;
+                const tasiyor = () => icerik.scrollHeight > icerik.clientHeight + 1 || icerik.scrollWidth > icerik.clientWidth + 1 || [document.getElementById('soruBaslik'), ...document.querySelectorAll('#secenekler .secenek-metin')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1);
                 for(let i = 0; i < 8 && tasiyor(); i += 1) {
                     olcek = Math.max(0.58, olcek - 0.06);
                     oyun.style.setProperty('--fit-scale', olcek.toFixed(2));
@@ -226,7 +228,7 @@
             document.getElementById('soruBaslik').innerText = gelenSoru.soru; const resim = document.getElementById('soruResmi');
             resim.onload = anaEkranaSigdir; resim.onerror = anaEkranaSigdir;
             if(gelenSoru.gorsel) { resim.src = gelenSoru.gorsel; resim.classList.remove('gizli'); } else { resim.removeAttribute('src'); resim.classList.add('gizli'); }
-            document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a" data-secenek="A"><div class="harf-ikon">A</div><span class="secenek-metin">${gelenSoru.secenekler.A}</span></div><div class="secenek-kart s-b" data-secenek="B"><div class="harf-ikon">B</div><span class="secenek-metin">${gelenSoru.secenekler.B}</span></div><div class="secenek-kart s-c" data-secenek="C"><div class="harf-ikon">C</div><span class="secenek-metin">${gelenSoru.secenekler.C}</span></div><div class="secenek-kart s-d" data-secenek="D"><div class="harf-ikon">D</div><span class="secenek-metin">${gelenSoru.secenekler.D}</span></div>`;
+            document.getElementById('secenekler').innerHTML = `<div class="secenek-kart s-a" data-secenek="A"><div class="harf-ikon">A</div><span class="secenek-metin">${ekranHtmlGuvenli(gelenSoru.secenekler.A)}</span></div><div class="secenek-kart s-b" data-secenek="B"><div class="harf-ikon">B</div><span class="secenek-metin">${ekranHtmlGuvenli(gelenSoru.secenekler.B)}</span></div><div class="secenek-kart s-c" data-secenek="C"><div class="harf-ikon">C</div><span class="secenek-metin">${ekranHtmlGuvenli(gelenSoru.secenekler.C)}</span></div><div class="secenek-kart s-d" data-secenek="D"><div class="harf-ikon">D</div><span class="secenek-metin">${ekranHtmlGuvenli(gelenSoru.secenekler.D)}</span></div>`;
             anaEkranaSigdir();
         });
 
@@ -257,7 +259,7 @@
         socket.on('puan_guncelle', (oyuncular) => {
             const liste = document.getElementById('skorListesi'); liste.innerHTML = "";
             oyuncular.sort((a, b) => b.puan - a.puan);
-            oyuncular.slice(0, 5).forEach((oyuncu) => { liste.innerHTML += `<li><span>👤 ${oyuncu.isim}</span> <span>${oyuncu.puan}</span></li>`; });
+            oyuncular.slice(0, 5).forEach((oyuncu) => { liste.innerHTML += `<li><span>👤 ${ekranHtmlGuvenli(oyuncu.isim)}</span> <span>${oyuncu.puan}</span></li>`; });
         });
 
         socket.on('skor_tablosunu_goster', () => { tumEkranlariGizle(); document.getElementById('skorBord').classList.remove('gizli'); });
@@ -268,9 +270,9 @@
             if(sesAktif) alkisSesi.play(); konfetiPatlat();
             oyuncular.sort((a, b) => b.puan - a.puan);
             const kazananlarDiv = document.getElementById('kazananlarListesi'); kazananlarDiv.innerHTML = "";
-            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style=\"font-size: 50px; color:#d89e00; margin-bottom:15px;\">🥇 1. ${oyuncular[0].isim} (${oyuncular[0].puan} Puan)</div>`;
-            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style=\"font-size: 35px; color:#bdc3c7; margin-bottom:10px;\">🥈 2. ${oyuncular[1].isim} (${oyuncular[1].puan} Puan)</div>`;
-            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style=\"font-size: 25px; color:#cd7f32;\">🥉 3. ${oyuncular[2].isim} (${oyuncular[2].puan} Puan)</div>`;
+            if(oyuncular[0]) kazananlarDiv.innerHTML += `<div style=\"font-size: 50px; color:#d89e00; margin-bottom:15px;\">🥇 1. ${ekranHtmlGuvenli(oyuncular[0].isim)} (${oyuncular[0].puan} Puan)</div>`;
+            if(oyuncular[1]) kazananlarDiv.innerHTML += `<div style=\"font-size: 35px; color:#bdc3c7; margin-bottom:10px;\">🥈 2. ${ekranHtmlGuvenli(oyuncular[1].isim)} (${oyuncular[1].puan} Puan)</div>`;
+            if(oyuncular[2]) kazananlarDiv.innerHTML += `<div style=\"font-size: 25px; color:#cd7f32;\">🥉 3. ${ekranHtmlGuvenli(oyuncular[2].isim)} (${oyuncular[2].puan} Puan)</div>`;
         });
 
         socket.on('quiz_sonlandirildi', (bilgi) => {
@@ -280,5 +282,7 @@
             document.getElementById('sesBtn').style.display = sesAktif ? 'none' : '';
         });
     </script>
+    <script src="/v140-common.js"></script>
+    <script>socket.connect();</script>
 </body>
 </html>

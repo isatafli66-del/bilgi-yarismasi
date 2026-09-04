@@ -1,7 +1,9 @@
-const CACHE_ADI = 'tazzy-quiz-v1.3.0';
+const CACHE_ADI = 'tazzy-quiz-v1.4.0';
 const UYGULAMA_DOSYALARI = [
   '/',
   '/manifest.webmanifest',
+  '/v140.css',
+  '/v140-common.js',
   '/icons/tazzy-192.png',
   '/icons/tazzy-512.png',
   '/Tazzy Siyah.png',
@@ -33,13 +35,14 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  if(!UYGULAMA_DOSYALARI.includes(decodeURIComponent(url.pathname))) return;
   event.respondWith(
-    caches.match(event.request).then(eslesen => eslesen || fetch(event.request).then(cevap => {
+    fetch(event.request).then(cevap => {
       if(cevap.ok) {
         const kopya = cevap.clone();
         caches.open(CACHE_ADI).then(cache => cache.put(event.request, kopya));
       }
       return cevap;
-    }))
+    }).catch(() => caches.match(event.request))
   );
 });

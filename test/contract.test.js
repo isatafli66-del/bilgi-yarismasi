@@ -17,6 +17,9 @@ const serviceWorker = oku('public/service-worker.js');
 
 new vm.Script(server, { filename: 'server.js' });
 new vm.Script(havuzModulu, { filename: 'soru-havuzu.js' });
+for(const file of ['canli-oturum.js','etkinlik-sablonlari.js','public/v140-common.js','public/v140-admin.js','public/v140-master.js','public/service-worker.js']) new vm.Script(oku(file), { filename: file });
+assert.ok(!server.includes("socketAsync(socket, 'sonuc_arsivi"), 'Sonuç arşivi bu sürümde olmamalı.');
+
 
 for (const [ad, html] of [['admin.html', admin], ['master.html', master], ['ekran.html', ekran], ['index.html', oyuncu]]) {
     const scriptler = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(eslesme => eslesme[1]);
@@ -89,7 +92,7 @@ assert.ok(oyuncu.includes('function kurumLogolariniGuncelle(logoVerisi)'), 'Yar�
 assert.ok(!oyuncu.includes('id="globalMobilLogo"'), 'Yarışmacı ekranında eski çakışan logo yerleşimi hâlâ bulunuyor.');
 
 assert.ok(master.includes('logoBase64: seciliLogoBase64'), 'MASTER ekranı kurum logosunu sunucuya göndermiyor.');
-assert.ok(server.includes('veriler.ayarlar.logo = data.logoBase64'), 'Sunucu MASTER logosunu kurum ayarlarına kaydetmiyor.');
+assert.ok(server.includes('logo: data.logoBase64 === undefined ? veriler.ayarlar.logo : data.logoBase64'), 'Sunucu MASTER logosunu kurum ayarlarına kaydetmiyor.');
 assert.ok(server.includes("socket.emit('ayarlar_guncelle', veriler.ayarlar)"), 'Sunucu kurum ayarlarını bağlanan ekrana göndermiyor.');
 
 for(const sekme of ['sekmeHazirlik', 'sekmeCanli', 'sekmeSonuclar']) assert.ok(admin.includes(`id="${sekme}"`), `Yönetici sekmesi eksik: ${sekme}`);

@@ -5,6 +5,7 @@ const os = require('node:os');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const { io } = require('socket.io-client');
+const { adminCookie } = require('./http-auth');
 
 function bekle(socket, olay, timeout = 5000) {
     return new Promise((resolve, reject) => {
@@ -43,14 +44,14 @@ test('sunucu havuz → bağımsız quiz kopyası → sıralama → canlı soru a
     const root = path.resolve(__dirname, '..');
     const child = spawn(process.execPath, ['server.js'], {
         cwd: root,
-        env: { ...process.env, STORAGE_PROVIDER: 'file', DATA_DIR: veriKlasoru, PORT: String(port), API_KEY: '' },
+        env: { ...process.env, STORAGE_PROVIDER: 'file', DATA_DIR: veriKlasoru, PORT: String(port), API_KEY: '', MASTER_SIFRE: 'test-master-secret-long' },
         stdio: ['ignore', 'pipe', 'pipe']
     });
     let admin;
     let ekran;
     try {
         await sunucuyuBekle(child);
-        admin = io(`http://127.0.0.1:${port}`, { transports: ['websocket'], forceNew: true });
+        admin = io(`http://127.0.0.1:${port}`, { transports: ['websocket'], forceNew: true, extraHeaders: { Cookie: await adminCookie(`http://127.0.0.1:${port}`) } });
         await bekle(admin, 'connect');
         const quizSozu = bekle(admin, 'verileri_guncelle');
         const havuzSozu = bekle(admin, 'soru_havuzu_guncelle');

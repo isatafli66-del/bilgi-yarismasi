@@ -108,6 +108,7 @@
             #mobilKurumLogoKutusu { height: calc(30px * var(--mobil-fit)); min-height: 24px; }
         }
     </style>
+    <link rel="stylesheet" href="/v140.css">
 </head>
 <body>
 
@@ -175,7 +176,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io({ autoConnect: false });
         let html5QrcodeScanner;
         let urlPin = null;
         let aktifOturumVar = false;
@@ -349,8 +350,8 @@
             sonOyunButonunuGuncelle();
         }
 
-        function quizdenCik() {
-            if(confirm('Quizden çıkmak istediğine emin misin? Oyuncu kaydın bu oturumdan kaldırılacak.')) anaSayfayaDon(true);
+        async function quizdenCik() {
+            if(await window.tazzyOnay('Quizden çıkmak istediğine emin misin? Oyuncu kaydın bu oturumdan kaldırılacak.')) anaSayfayaDon(true);
         }
 
         document.getElementById('sonOyunaDonBtn').addEventListener('click', () => oyunaKatil(sonKullaniciAd, sonKullaniciPin));
@@ -478,5 +479,7 @@
         }
         socket.on('cevap_reddedildi', (mesaj) => gosterMesaj(mesaj || 'Cevabın daha önce kaydedildi.'));
     </script>
+    <script src="/v140-common.js"></script>
+    <script>socket.connect();</script>
 </body>
 </html>

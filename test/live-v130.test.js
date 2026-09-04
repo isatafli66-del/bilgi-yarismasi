@@ -5,6 +5,7 @@ const os = require('node:os');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const { io } = require('socket.io-client');
+const { adminCookie } = require('./http-auth');
 
 function bekle(socket, olay, timeout = 5000) {
     return new Promise((resolve, reject) => {
@@ -39,7 +40,7 @@ test('v1.3 canlı akış: tek cevap, manuel cevap, kişisel sonuç, optik sonuç
     const root = path.resolve(__dirname, '..');
     const child = spawn(process.execPath, ['server.js'], {
         cwd: root,
-        env: { ...process.env, STORAGE_PROVIDER: 'file', DATA_DIR: veriKlasoru, PORT: String(port), API_KEY: '' },
+        env: { ...process.env, STORAGE_PROVIDER: 'file', DATA_DIR: veriKlasoru, PORT: String(port), API_KEY: '', MASTER_SIFRE: 'test-master-secret-long' },
         stdio: ['ignore', 'pipe', 'pipe']
     });
     let admin;
@@ -49,7 +50,7 @@ test('v1.3 canlı akış: tek cevap, manuel cevap, kişisel sonuç, optik sonuç
     try {
         await sunucuyuBekle(child);
         const adres = `http://127.0.0.1:${port}`;
-        admin = io(adres, { transports: ['websocket'], forceNew: true });
+        admin = io(adres, { transports: ['websocket'], forceNew: true, extraHeaders: { Cookie: await adminCookie(adres) } });
         await bekle(admin, 'connect');
         const ilkQuizler = bekle(admin, 'verileri_guncelle');
         admin.emit('admin_giris', 'ROOF-01');
