@@ -1,6 +1,12 @@
-# Tazzy Quiz 1.4.1
+# Tazzy Quiz 1.5.0 — Premium Etkinlik Paketi
 
-## 1.4.1 düzeltmeleri
+Bu sürüm; Premium Etkinlik Merkezi, ayrı Sunucu/Reji görünümü, Marka Stüdyosu
+2.0, kurum bazında son 10 etkinlik arşivi, takım modu, sekiz soru/etkileşim türü,
+belge destekli AI üretimi, otelcilik/kurumsal şablonlar, süreye göre eşitlik bozma
+ve gösteri biçiminde podyum içerir. Ayrıntılı kullanım ve geçiş notları için
+`README_PREMIUM_V150.md` dosyasına bakın.
+
+## Önceki 1.4.1 düzeltmeleri
 
 - Yönetici paneline Kullanım Kılavuzu sekmesi eklendi. Genel kullanım açıklamaları
   bu sekmede toplandı; işlem sırasında gerekli hata ve onay mesajları korundu.
@@ -20,8 +26,8 @@ Bu sürüm mevcut Render + Supabase + Socket.IO mimarisini ve kurum ayrımını 
 Soru havuzu, bağımsız quiz kopyaları, sürükle-bırak sıralama, AI soru hazırlama,
 manuel cevap, kişisel sonuç, optik tablo, PWA ve logo alanları korunmuştur.
 
-**Bu sürümde sonuç arşivi, ödeme, abonelik veya paket limiti yoktur.**
-Ticari hazırlık kapsamı yalnızca etkinlik şablonları ve kurum temalarıdır.
+**Ödeme, abonelik veya paket limiti yoktur.** Gerçek etkinliklerin son 10 sonucu
+kuruma özel olarak arşivlenir; prova sonuçları arşivlenmez.
 
 ## Yeni özelliklerin kullanımı
 
@@ -45,8 +51,8 @@ Lobi, soru, süre sonu, cevap yansıtma, ara skor, kapanış ve podyum görünü
 - **Quizi Bitir** geçici kurtarma kaydını siler. Kullanılmayan kayıtlar son kayıttan
   12 saat sonra, çalışan sunucuda dakika bazlı temizlikte veya sonraki açılışta silinir.
   Sunucu uyuyorsa fiziksel temizlik yeniden açılınca yapılır.
-- Sonuçlar yalnızca oturum açıkken kurtarma kopyasında bulunabilir. Bitirme sonrası
-  sunucuda sonuç arşivi tutulmaz; açık admin sayfasındaki son tablo o anda indirilebilir.
+- Tamamlanan gerçek etkinlikler kurumun son 10 kayıtlık rapor arşivine eklenir.
+  Prova sonuçları eklenmez; on birinci kayıtta en eski etkinlik otomatik kaldırılır.
 
 **Tek Render instance / tek Node süreci kullanılmalıdır.** Çoklu instance için
 paylaşımlı Socket.IO adaptörü, dağıtık kilit ve oturum sahipliği ayrıca gerekir.
@@ -129,6 +135,7 @@ Mevcut `public.app_data(key text, value jsonb, updated_at timestamptz)` kullanı
 Mevcut anahtarlar korunur: `kurumlar`, `quizler_KURUM`, `ayarlar_KURUM`,
 `soru_havuzu_KURUM`, `soru_havuzu_meta_KURUM`.
 Geçici kurtarma: `aktif_oyun_KURUM` ve `aktif_oyun_indeksi`.
+Son 10 sonuç arşivi: `etkinlik_arsivi_KURUM`.
 
 - RLS açık kalmalıdır. Tabloya public/anon okuma-yazma politikası eklemeyin.
 - Service-role anahtarı yalnızca Render ortamındadır; tarayıcıya/ZIP'e/GitHub'a konmaz.
@@ -157,7 +164,8 @@ npm audit --omit=dev
 ```
 
 Mevcut ortam değişkenleri:
-`STORAGE_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+`STORAGE_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (önerilen) veya
+eski kurulumlarla uyum için `SUPABASE_SERVICE_ROLE_KEY`,
 `MASTER_SIFRE`, `NODE_VERSION`, `API_KEY`, `GEMINI_MODEL`.
 Yeni zorunlu değişken yoktur. İstenirse güçlü bağımsız `SESSION_SECRET` kullanılabilir;
 yoksa mevcut MASTER_SIFRE imza anahtarıdır. Boş anahtarla sunucu başlamaz.
@@ -170,7 +178,7 @@ ZIP'i açıp klasör **içeriğini** repo köküne yükleyin. Ortam sırlarını
 
 ## Test kapsamı
 
-`npm test`: sözdizimi/sözleşme kontrolleri ve 13 otomatik test.
+`npm test`: sözdizimi/sözleşme kontrolleri ve tüm eski-yeni otomatik testler.
 Bağımsız havuz kopyası, sıralama, eski veri geçişi, normal ve manuel cevap, çift cevap
 engeli, kişisel/optik sonuç, quiz bitirme, gerçek HTTP yetki, tenant izolasyonu,
 şifre değişimi sonrası yetki iptali, eski soru cevabı reddi, tema izolasyonu,

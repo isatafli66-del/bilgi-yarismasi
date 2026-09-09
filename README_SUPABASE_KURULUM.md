@@ -13,11 +13,12 @@ Render > Service > Environment bölümünde şu değişkenleri ekle:
 ```text
 STORAGE_PROVIDER=supabase
 SUPABASE_URL=Supabase Project URL
-SUPABASE_SERVICE_ROLE_KEY=Supabase service_role secret key
+SUPABASE_SECRET_KEY=Supabase secret key (önerilen)
+# Mevcut kurulumlarda SUPABASE_SERVICE_ROLE_KEY de desteklenir.
 API_KEY=Google Gemini API key
 MASTER_SIFRE=Master panel şifren
-NODE_VERSION=18
-GEMINI_MODEL=gemini-1.5-flash
+NODE_VERSION=24
+GEMINI_MODEL=Render'da kullandığın güncel Gemini modeli
 ```
 
 Render Free kullanırken `DATA_DIR=/var/data` ekleme. Bu değişkeni varsa sil.
@@ -38,6 +39,11 @@ Start Command: npm start
 5. Yeni kurum oluştur.
 6. Render'da Manual Deploy > Deploy latest commit yap.
 7. Kurum hâlâ duruyorsa Supabase kaydı çalışıyor demektir.
+8. Gerçek bir deneme etkinliğini tamamla; `Son 10 Etkinlik` ekranında raporu aç.
+
+Bu sürüm yeni tablo gerektirmez. Sonuçlar mevcut `app_data` tablosunda kurum bazlı
+`etkinlik_arsivi_KURUMKODU` anahtarında, yalnızca en son 10 etkinlik olacak şekilde
+saklanır. `anon` veya `authenticated` rollerine açık RLS politikası ekleme.
 
 
 ## NPM Build Hatası Notu

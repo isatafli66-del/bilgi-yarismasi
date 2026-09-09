@@ -26,6 +26,17 @@ const {
     oyunuSerilestir,
     oyunuCanlandir
 } = require('./canli-oturum');
+const {
+    SECENEK_HARFLERI,
+    SORU_TIPLERI,
+    archiveResult,
+    archiveSummaries,
+    evaluateAnswer,
+    normalizeTeams,
+    playerTiming,
+    rankPlayers,
+    teamStandings
+} = require('./premium');
 
 const API_KEY = (process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
 
@@ -57,6 +68,8 @@ const GEMINI_QUIZ_RESPONSE_SCHEMA = {
         properties: {
             soru: { type: 'STRING' },
             gorsel_prompt: { type: 'STRING' },
+            aciklama: { type: 'STRING' },
+            kaynakAciklamasi: { type: 'STRING' },
             secenekler: {
                 type: 'OBJECT',
                 required: ['A', 'B', 'C', 'D'],
@@ -81,7 +94,7 @@ const GEMINI_MODELS = uniqueList([...USER_GEMINI_MODELS, ...DEFAULT_GEMINI_MODEL
 
 const STORAGE_PROVIDER = (process.env.STORAGE_PROVIDER || 'supabase').trim().toLowerCase();
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
-const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '').trim();
 const APP_DATA_TABLE = 'app_data';
 const OTURUM_GIZLI_ANAHTARI = String(process.env.SESSION_SECRET || process.env.MASTER_SIFRE || process.env.ADMIN_SIFRE || '');
 const TEST_MODU = false;
@@ -93,7 +106,7 @@ if(!OTURUM_GIZLI_ANAHTARI && !TEST_MODU) {
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    maxHttpBufferSize: 2 * 1024 * 1024,
+    maxHttpBufferSize: 7 * 1024 * 1024,
     allowRequest(req, callback) {
         try { callback(null, !req.headers.origin || new URL(req.headers.origin).host === req.headers.host); }
         catch (_) { callback(null, false); }
@@ -118,7 +131,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const supabaseHazir = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
 if (STORAGE_PROVIDER === 'supabase' && !supabaseHazir) {
-    throw new Error('STORAGE_PROVIDER=supabase seçili fakat SUPABASE_URL veya SUPABASE_SERVICE_ROLE_KEY eksik. Render > Environment bölümünü kontrol edin.');
+    throw new Error('STORAGE_PROVIDER=supabase seçili fakat SUPABASE_URL veya SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY eksik. Render > Environment bölümünü kontrol edin.');
 }
 
 if (STORAGE_PROVIDER === 'supabase' && supabaseHazir) {
@@ -317,13 +330,29 @@ async function saveKurumData(kurum, tur, data) {
     await setAppData(`${tur}_${kurum}`, data);
 }
 
+async function etkinlikArsiviniGetir(kurum) {
+    const arsiv = await getAppData(`etkinlik_arsivi_${kurum}`, { versiyon: 1, sonuclar: [] });
+    return arsiv && Array.isArray(arsiv.sonuclar) ? arsiv : { versiyon: 1, sonuclar: [] };
+}
+
+async function etkinlikSonucunuArsivle(oyun, tamSonuc, ayarlar) {
+    if(!oyun || oyun.prova || oyun.arsivlendi || !tamSonuc) return null;
+    const eski = await etkinlikArsiviniGetir(oyun.kurumKodu);
+    const yeni = archiveResult(tamSonuc, eski, ayarlar);
+    await saveKurumData(oyun.kurumKodu, 'etkinlik_arsivi', yeni);
+    oyun.arsivlendi = true;
+    io.to(`admin_${oyun.kurumKodu}`).emit('etkinlik_arsivi_guncelle', archiveSummaries(yeni));
+    return yeni.sonuclar[0];
+}
+
 async function deleteKurumData(kurum) {
     await Promise.all([
         deleteAppData(`quizler_${kurum}`),
         deleteAppData(`ayarlar_${kurum}`),
         deleteAppData(`soru_havuzu_${kurum}`),
         deleteAppData(`soru_havuzu_meta_${kurum}`),
-        deleteAppData(`aktif_oyun_${kurum}`)
+        deleteAppData(`aktif_oyun_${kurum}`),
+        deleteAppData(`etkinlik_arsivi_${kurum}`)
     ]);
 }
 
@@ -395,7 +424,8 @@ const ADMIN_SOCKET_OLAYLARI = new Set([
     'sure_durdur_devam', 'admin_skor_goster', 'admin_podyum_goster', 'quiz_sonlandir',
     'admin_oyuncu_ekle', 'admin_manuel_cevap_gir', 'admin_puan_duzenle', 'admin_oyuncu_ad_duzenle',
     'admin_oyuncu_sil', 'yayin_oncesi_kontrol', 'sistem_sagligi_iste', 'aktif_oturumu_devam_ettir',
-    'sablondan_quiz_olustur', 'kurum_tema_kaydet', 'lobi_sayaci_ayarla'
+    'sablondan_quiz_olustur', 'kurum_tema_kaydet', 'lobi_sayaci_ayarla', 'etkinlik_arsivi_iste',
+    'etkinlik_arsiv_detay_iste', 'etkinlik_arsiv_sil', 'quiz_premium_ayar_kaydet', 'reji_bekleme_ekrani'
 ]);
 const MASTER_SOCKET_OLAYLARI = new Set(['master_veri_istek', 'master_kurum_detay_istek', 'master_kurum_ekle_guncelle', 'master_kurum_sil']);
 
@@ -538,7 +568,7 @@ const oyunKayitZamanlayicilari = new Map();
 const katilmaSinirlari = new Map();
 let kaliciYazmaKuyrugu = Promise.resolve();
 
-const CEVAP_HARFLERI = ['A', 'B', 'C', 'D'];
+const CEVAP_HARFLERI = SECENEK_HARFLERI;
 
 function oyunIndeksiniTemizle() {
     const simdi = Date.now();
@@ -620,11 +650,22 @@ function oyuncuKimligi(oyuncuToken, socketId) {
     return temizToken.length >= 8 ? `istemci_${temizToken}` : socketId;
 }
 
+function oyuncuAdiGuvenliMi(isim) {
+    const sade = String(isim || '').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9çğıöşü]+/gi, ' ');
+    const engelli = ['orospu','sik','amk','aq','piç','pic','yarrak','fuck','nigger'];
+    return !engelli.some(kelime => new RegExp(`(^|\\s)${kelime}(\\s|$)`, 'i').test(sade));
+}
+
 function oyuncuYayinVerisi(id, oyuncu) {
+    const sureler = playerTiming(oyuncu);
     return {
         id,
         isim: oyuncu.isim,
+        avatar: oyuncu.avatar || '⚡',
         puan: Number(oyuncu.puan) || 0,
+        takimId: oyuncu.takimId || null,
+        takimAdi: oyuncu.takimAdi || null,
+        ...sureler,
         manuel: Boolean(oyuncu.manuel),
         bagli: oyuncu.manuel ? true : oyuncu.bagli !== false
     };
@@ -632,9 +673,15 @@ function oyuncuYayinVerisi(id, oyuncu) {
 
 function puanlariYayinla(oyun) {
     if(!oyun) return;
-    const liste = Object.values(oyun.oyuncular).map(oyuncu => ({ isim: oyuncu.isim, puan: Number(oyuncu.puan) || 0 }));
+    const liste = rankPlayers(Object.entries(oyun.oyuncular).map(([id, oyuncu]) => ({ id, ...oyuncu }))).map(oyuncu => ({ isim: oyuncu.isim, puan: Number(oyuncu.puan) || 0, takimId: oyuncu.takimId || null, takimAdi: oyuncu.takimAdi || null, sira: oyuncu.sira, dogruCevapSuresiMs: oyuncu.dogruCevapSuresiMs }));
     io.to(`ekran_${oyun.kurumKodu}`).emit('puan_guncelle', liste);
     io.to(`pin_${oyun.pin}`).emit('puan_guncelle', liste);
+    if(oyun.takimModu) {
+        const takimlar = teamStandings(Object.values(oyun.oyuncular), oyun.takimlar);
+        io.to(`ekran_${oyun.kurumKodu}`).emit('takim_puan_guncelle', takimlar);
+        io.to(`pin_${oyun.pin}`).emit('takim_puan_guncelle', takimlar);
+        io.to(`admin_${oyun.kurumKodu}`).emit('takim_puan_guncelle', takimlar);
+    }
 }
 
 function adminOyunculariGonder(oyun) {
@@ -663,6 +710,8 @@ function adminOyunDurumuGonder(oyun, ek = {}) {
         toplamSoru: Number(oyun.toplamSoru) || 0,
         durum: oyun.durum || 'lobi',
         kalanSure: Math.max(0, Number(oyun.kalanSure) || 0),
+        takimModu: Boolean(oyun.takimModu),
+        takimlar: oyun.takimlar || [],
         prova: Boolean(oyun.prova),
         kurtarildi: Boolean(oyun.kurtarildi),
         ...ek
@@ -718,7 +767,8 @@ async function guncelOyunGorunumunuGonder(socket, oyun, hedef) {
     if(yanit && !oyun.cevapYansitildi) socket.emit('oyuncu_cevap_durumu', { secim: yanit.secim });
     if(gorunenDurum === 'tamamlandi') socket.emit('quiz_bitti_bekle');
     if(gorunenDurum === 'podyum' && oyun.sonSonuc) {
-        socket.emit('quiz_bitti_final', oyun.sonSonuc.oyuncular.map(({ isim, puan }) => ({ isim, puan })));
+        socket.emit('quiz_bitti_final', oyun.sonSonuc.oyuncular.map(({ isim, puan, sira, takimAdi, dogruCevapSuresiMs }) => ({ isim, puan, sira, takimAdi, dogruCevapSuresiMs })));
+        socket.emit('podyum_detayi', { takimModu: oyun.sonSonuc.takimModu, takimlar: oyun.sonSonuc.takimlar || [], oyuncular: oyun.sonSonuc.oyuncular.map(({ isim, puan, sira, takimAdi, dogruCevapSuresiMs }) => ({ isim, puan, sira, takimAdi, dogruCevapSuresiMs })) });
         if(hedef === 'oyuncu' && socket.oyuncuId) socket.emit('oyuncu_sonuc', kisiselSonucuHazirla(oyun.sonSonuc, socket.oyuncuId));
     }
         if(oyun.kurtarildi) socket.emit('oturum_kurtarildi', {
@@ -755,15 +805,17 @@ async function provaCevaplariniUygula(oyun) {
     const quiz = oyun.quizAnlik || (await loadKurumData(oyun.kurumKodu)).quizler[oyun.quizId];
     const soru = quiz?.sorular?.[oyun.soruSirasi];
     if(!soru) return;
-    const yanlis = CEVAP_HARFLERI.find(harf => harf !== soru.dogruCevap) || 'A';
-    const cevaplar = [['prova_dogru', soru.dogruCevap], ['prova_karma', oyun.soruSirasi % 2 ? yanlis : soru.dogruCevap]];
+    const dogruSecim = soru.tip === 'acik-uclu' ? soru.dogruMetin : soru.tip === 'tahmin' ? soru.dogruCevap : soru.dogruCevap;
+    const yanlis = soru.tip === 'acik-uclu' ? 'yanlış demo cevabı' : soru.tip === 'tahmin' ? String((Number(soru.dogruCevap) || 0) + (Number(soru.tolerans) || 0) + 10) : CEVAP_HARFLERI.find(harf => !String(soru.dogruCevap || '').split(',').includes(harf) && soru.secenekler?.[harf]) || Object.keys(soru.secenekler || {})[0] || 'A';
+    const cevaplar = [['prova_dogru', dogruSecim], ['prova_karma', oyun.soruSirasi % 2 ? yanlis : dogruSecim]];
     const provaSoruSirasi = oyun.soruSirasi;
     cevaplar.forEach(([id, secim], index) => setTimeout(() => {
         if(!oyunlar[oyun.pin] || !oyun.soruAktifMi || oyun.soruSirasi !== provaSoruSirasi || oyun.oyuncular[id]?.cevaplar?.[oyun.soruSirasi]) return;
         const oyuncu = oyun.oyuncular[id];
-        const dogruMu = secim === soru.dogruCevap;
-        oyuncu.cevaplar[oyun.soruSirasi] = { secim, dogruMu, cevapZamani: Date.now(), prova: true };
-        if(dogruMu) oyuncu.puan += Number(quiz.puan) || 0;
+        let sonuc; try { sonuc = evaluateAnswer(soru, secim); } catch (_) { return; }
+        const cevapZamani = Date.now();
+        oyuncu.cevaplar[oyun.soruSirasi] = { ...sonuc, cevapZamani, cevapSuresiMs: Math.max(0, cevapZamani - (oyun.soruBaslamaZamani || cevapZamani)), prova: true };
+        if(sonuc.dogruMu) oyuncu.puan += Math.round((Number(quiz.puan) || 0) * (Number(soru.puanCarpani) || 1));
         adminOyunculariGonder(oyun);
         puanlariYayinla(oyun);
     }, 700 + index * 550));
@@ -776,6 +828,7 @@ async function yeniOyunBaslat(socket, istek, provaZorla = false) {
     const prova = provaZorla || Boolean(typeof istek === 'object' && istek?.prova);
     const veriler = await loadKurumData(k);
     const aktifQuiz = veriler.quizler[quizId];
+    const takimAyarlari = normalizeTeams(aktifQuiz || {});
     const kontrol = yayinOncesiKontrol(aktifQuiz, { ekranBagli: (io.sockets.adapter.rooms.get(`ekran_${k}`)?.size || 0) > 0 });
     if(!aktifQuiz || !Array.isArray(aktifQuiz.sorular) || aktifQuiz.sorular.length === 0 || !kontrol.hazir) {
         socket.emit('sistem_hata', 'Canlıya almak için soruları ve cevap anahtarı eksiksiz geçerli bir quiz seçin.');
@@ -814,12 +867,15 @@ async function yeniOyunBaslat(socket, istek, provaZorla = false) {
         cevapYansitildi: false,
         durum: 'lobi',
         sonSonuc: null,
+        takimModu: takimAyarlari.takimModu,
+        takimlar: takimAyarlari.takimlar,
+        arsivlendi: false,
         baslangicZamani: Date.now(),
         prova,
         kurtarildi: false
     };
-    io.to(`admin_${k}`).emit('oturum_basladi', { pin: yeniPin, prova });
-    io.to(`ekran_${k}`).emit('oturum_basladi', { pin: yeniPin, prova, etkinlikAdi: veriler.ayarlar.etkinlikAdi });
+    io.to(`admin_${k}`).emit('oturum_basladi', { pin: yeniPin, prova, ...takimAyarlari });
+    io.to(`ekran_${k}`).emit('oturum_basladi', { pin: yeniPin, prova, etkinlikAdi: veriler.ayarlar.etkinlikAdi, ...takimAyarlari });
     adminOyunculariGonder(oyunlar[yeniPin]);
     adminOyunDurumuGonder(oyunlar[yeniPin]);
     await aktifOyunKaydet(oyunlar[yeniPin]);
@@ -832,26 +888,38 @@ function oyunSonucunuHazirla(oyun, aktifQuiz) {
             soruNo: index + 1,
             soru: soru.soru,
             secenekler: soru.secenekler,
-            dogruCevap: soru.dogruCevap
+            tip: soru.tip || 'coktan-secmeli',
+            dogruCevap: soru.dogruCevap,
+            dogruCevaplar: soru.dogruCevaplar || [],
+            aciklama: soru.aciklama || null,
+            kaynakAciklamasi: soru.kaynakAciklamasi || null
         } : null)
         .filter(Boolean);
-    const oyuncular = Object.entries(oyun.oyuncular).map(([id, oyuncu]) => ({
+    const oyuncular = rankPlayers(Object.entries(oyun.oyuncular).map(([id, oyuncu]) => ({
         ...oyuncuYayinVerisi(id, oyuncu),
+        cevapHam: oyuncu.cevaplar,
         cevaplar: sorular.map(soru => {
             const yanit = oyuncu.cevaplar?.[soru.index];
             return {
                 soruNo: soru.soruNo,
                 secim: yanit?.secim || null,
-                dogruMu: Boolean(yanit?.dogruMu),
-                dogruCevap: soru.dogruCevap
+                dogruMu: yanit?.dogruMu === null ? null : Boolean(yanit?.dogruMu),
+                cevapSuresiMs: Number(yanit?.cevapSuresiMs) || null,
+                dogruCevap: soru.dogruCevap,
+                fark: Number.isFinite(yanit?.fark) ? yanit.fark : null
             };
         })
-    })).sort((a, b) => b.puan - a.puan || a.isim.localeCompare(b.isim, 'tr'));
+    }))).map(({ cevapHam, ...oyuncu }) => oyuncu);
+    const takimlar = oyun.takimModu ? teamStandings(oyuncular, oyun.takimlar) : [];
     return {
         quizId: oyun.quizId,
         quizAdi: aktifQuiz?.ad || 'Quiz',
         pin: oyun.pin,
+        baslangicZamani: new Date(oyun.baslangicZamani || Date.now()).toISOString(),
         tamamlanmaZamani: new Date().toISOString(),
+        takimModu: Boolean(oyun.takimModu),
+        takimlar,
+        esitlikKurali: 'Eşit puanda doğru cevapların toplam süresi düşük olan üst sıradadır.',
         sorular,
         oyuncular
     };
@@ -862,7 +930,8 @@ function kisiselSonucuHazirla(tamSonuc, oyuncuId) {
     if(!oyuncu) return null;
     return {
         quizAdi: tamSonuc.quizAdi,
-        oyuncu: { isim: oyuncu.isim, puan: oyuncu.puan },
+        oyuncu: { isim: oyuncu.isim, puan: oyuncu.puan, sira: oyuncu.sira, takimAdi: oyuncu.takimAdi || null, dogruCevapSuresiMs: oyuncu.dogruCevapSuresiMs },
+        esitlikKurali: tamSonuc.esitlikKurali,
         cevaplar: tamSonuc.sorular.map(soru => {
             const yanit = oyuncu.cevaplar.find(cevap => cevap.soruNo === soru.soruNo);
             return {
@@ -871,7 +940,10 @@ function kisiselSonucuHazirla(tamSonuc, oyuncuId) {
                 secenekler: soru.secenekler,
                 secim: yanit?.secim || null,
                 dogruCevap: soru.dogruCevap,
-                dogruMu: Boolean(yanit?.dogruMu)
+                dogruMu: yanit?.dogruMu === null ? null : Boolean(yanit?.dogruMu),
+                cevapSuresiMs: yanit?.cevapSuresiMs || null,
+                aciklama: soru.aciklama || null,
+                kaynakAciklamasi: soru.kaynakAciklamasi || null
             };
         })
     };
@@ -922,7 +994,7 @@ async function listAvailableGeminiModels() {
     }
 }
 
-async function callGeminiModel(modelName, promptText, useJsonMime = true, useSchema = true) {
+async function callGeminiModel(modelName, promptText, useJsonMime = true, useSchema = true, belge = null) {
     const model = normalizeGeminiModelName(modelName);
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(API_KEY)}`;
     const generationConfig = {
@@ -936,11 +1008,14 @@ async function callGeminiModel(modelName, promptText, useJsonMime = true, useSch
         if (useSchema) generationConfig.responseSchema = GEMINI_QUIZ_RESPONSE_SCHEMA;
     }
 
+    const parts = [];
+    if(belge?.data && belge?.mimeType) parts.push({ inlineData: { mimeType: belge.mimeType, data: belge.data } });
+    parts.push({ text: promptText });
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }],
+            contents: [{ parts }],
             generationConfig
         })
     });
@@ -1092,14 +1167,14 @@ async function parseOrRepairAiQuestions(aiCevap, sayi, konu) {
     }
 }
 
-async function generateGeminiQuizJson(promptText) {
+async function generateGeminiQuizJson(promptText, belge = null) {
     const denenenler = [];
     const dynamicModels = await listAvailableGeminiModels();
     const modelList = uniqueList([...GEMINI_MODELS, ...dynamicModels]);
 
     for (const model of modelList) {
         try {
-            const result = await callGeminiModel(model, promptText, true);
+            const result = await callGeminiModel(model, promptText, true, true, belge);
             console.log(`[BILGI] Gemini AI başarılı model: ${result.model}`);
             return result;
         } catch (e) {
@@ -1109,7 +1184,7 @@ async function generateGeminiQuizJson(promptText) {
             // Bazı modeller responseSchema desteklemez ama JSON mime destekler.
             if (msg.includes('responseschema') || msg.includes('response_schema') || msg.includes('schema')) {
                 try {
-                    const result = await callGeminiModel(model, promptText, true, false);
+                    const result = await callGeminiModel(model, promptText, true, false, belge);
                     console.log(`[BILGI] Gemini AI başarılı model: ${result.model} (schema olmadan)`);
                     return result;
                 } catch (eSchema) {
@@ -1121,7 +1196,7 @@ async function generateGeminiQuizJson(promptText) {
             // Aynı modeli JSON mime olmadan bir kez daha deniyoruz.
             if (msg.includes('responsemime') || msg.includes('response_mime') || msg.includes('generationconfig')) {
                 try {
-                    const result = await callGeminiModel(model, promptText, false, false);
+                    const result = await callGeminiModel(model, promptText, false, false, belge);
                     console.log(`[BILGI] Gemini AI başarılı model: ${result.model} (JSON mime olmadan)`);
                     return result;
                 } catch (e2) {
@@ -1226,6 +1301,7 @@ io.on('connection', (socket) => {
         socket.emit('soru_havuzu_guncelle', veriler.soruHavuzu);
         socket.emit('soru_havuzu_migrasyon', veriler.havuzMeta);
         socket.emit('ayarlar_guncelle', veriler.ayarlar);
+        socket.emit('etkinlik_arsivi_guncelle', archiveSummaries(await etkinlikArsiviniGetir(kurumKodu)));
         let pin = kurumAktifPin[kurumKodu];
         if(pin && oyunlar[pin]) {
             socket.emit('oturum_basladi', { pin: pin, prova: Boolean(oyunlar[pin].prova) });
@@ -1253,6 +1329,13 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('oyun_bilgisi_iste', (pinDegeri, ack) => {
+        const pin = String(pinDegeri || '').trim();
+        const oyun = oyunlar[pin];
+        const veri = oyun ? { bulundu: true, takimModu: Boolean(oyun.takimModu), takimlar: oyun.takimlar || [], durum: oyun.durum, soruNo: Math.max(0, oyun.soruSirasi + 1) } : { bulundu: false, takimModu: false, takimlar: [] };
+        if(typeof ack === 'function') ack(veri); else socket.emit('oyun_bilgisi', veri);
+    });
+
     socketAsync(socket, 'oyuncu_katil', async (data) => {
         if(!katilmaIzniVarMi(socket)) { socket.emit('katilma_hatasi', 'Çok fazla katılma denemesi yapıldı. Bir dakika bekleyin.'); return; }
         const pin = String(data?.pin || '').trim();
@@ -1261,6 +1344,11 @@ io.on('connection', (socket) => {
         if(oyun.prova) { socket.emit('katilma_hatasi', 'Bu PIN yönetici prova oturumuna aittir ve gerçek yarışmacı kabul etmez.'); return; }
         const isim = String(data?.isim || '').trim().slice(0, 60);
         if(!isim) { socket.emit('katilma_hatasi', 'Oyuncu adı boş olamaz.'); return; }
+        if(!oyuncuAdiGuvenliMi(isim)) { socket.emit('katilma_hatasi', 'Lütfen etkinliğe uygun bir oyuncu adı kullanın.'); return; }
+        const avatar = ['⚡','⭐','🚀','🧠','🎯','🏆'].includes(data?.avatar) ? data.avatar : '⚡';
+        const secilenTakim = String(data?.takimId || '').trim();
+        const takim = oyun.takimModu ? oyun.takimlar.find(item => item.id === secilenTakim) : null;
+        if(oyun.takimModu && !takim) { socket.emit('katilma_hatasi', 'Bu yarışma için takımını seçmelisin.'); return; }
         const id = oyuncuKimligi(data?.oyuncuToken, socket.id);
         const veriler = await loadKurumData(oyun.kurumKodu);
         if(socket.pin && socket.pin !== pin) {
@@ -1275,10 +1363,16 @@ io.on('connection', (socket) => {
         oyun.oyuncular[id] = mevcut ? {
             ...mevcut,
             isim,
+            avatar,
+            takimId: takim?.id || mevcut.takimId || null,
+            takimAdi: takim?.ad || mevcut.takimAdi || null,
             socketId: socket.id,
             bagli: true
         } : {
             isim,
+            avatar,
+            takimId: takim?.id || null,
+            takimAdi: takim?.ad || null,
             puan: 0,
             manuel: false,
             bagli: true,
@@ -1327,24 +1421,38 @@ io.on('connection', (socket) => {
             const zorluk = String(istek?.zorluk || 'Orta').trim().slice(0, 30);
             const sayi = Math.max(1, Math.min(parseInt(istek?.sayi, 10) || 3, 10));
             if (!konu) throw new Error('Konu başlığı boş olamaz.');
+            const kaynakMetni = String(istek?.kaynakMetni || '').trim().slice(0, 40000);
+            let belge = null;
+            if(istek?.belge?.data) {
+                const mimeType = String(istek.belge.mimeType || '').toLowerCase();
+                const izinliMime = new Set(['application/pdf','text/plain','text/markdown','text/csv','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
+                const belgeVerisi = String(istek.belge.data || '').replace(/^data:[^;]+;base64,/, '');
+                if(!izinliMime.has(mimeType) || !/^[A-Za-z0-9+/=]+$/.test(belgeVerisi) || belgeVerisi.length > 6_500_000) throw new Error('Belge PDF, Word, PowerPoint veya metin biçiminde ve en fazla 4,5 MB olmalıdır.');
+                belge = { mimeType, data: belgeVerisi, ad: String(istek.belge.ad || 'Kurum belgesi').slice(0, 120) };
+            }
 
             const promptText = `Sen profesyonel bir bilgi yarışması hazırlayıcısın.
 Konu: "${konu}"
 Zorluk: "${zorluk}"
 Soru sayısı: ${sayi}
+${belge ? `Yüklenen belge: "${belge.ad}". Soruları yalnızca belgedeki doğrulanabilir bilgilerden üret.` : ''}
+${kaynakMetni ? `Kurum kaynak metni:\n---\n${kaynakMetni}\n---` : ''}
 
 Kurallar:
 - Türkçe, eğlenceli ve net çoktan seçmeli sorular üret.
 - Her soruda A, B, C, D seçenekleri eksiksiz olsun.
 - dogruCevap sadece A, B, C veya D olsun.
+- Her soru için doğru cevabın neden doğru olduğunu anlatan kısa bir aciklama yaz.
+- Belge veya kaynak metni verildiyse kaynakAciklamasi alanına belge adı ile mümkünse sayfa/bölüm bilgisini yaz; kaynakta olmayan bilgi üretme.
+- Belirsiz, yanıltıcı, birden fazla doğru cevabı olan veya kişisel veri içeren soru üretme.
 - Her soru için İngilizce, kısa, güvenli bir gorsel_prompt yaz.
 - Markdown, açıklama veya kod bloğu yazma.
 - Cevabı yalnızca geçerli JSON dizisi olarak döndür.
 
 Format:
-[{"soru":"...","gorsel_prompt":"...","secenekler":{"A":"...","B":"...","C":"...","D":"..."},"dogruCevap":"A"}]`;
+[{"soru":"...","gorsel_prompt":"...","secenekler":{"A":"...","B":"...","C":"...","D":"..."},"dogruCevap":"A","aciklama":"...","kaynakAciklamasi":"..."}]`;
 
-            const aiCevap = await generateGeminiQuizJson(promptText);
+            const aiCevap = await generateGeminiQuizJson(promptText, belge);
             const sorular = await parseOrRepairAiQuestions(aiCevap, sayi, konu);
 
             if (!Array.isArray(sorular) || sorular.length === 0) throw new Error('Yapay zeka soru listesi oluşturamadı.');
@@ -1357,7 +1465,10 @@ Format:
                     C: String(s.secenekler?.C || '').trim(),
                     D: String(s.secenekler?.D || '').trim()
                 },
-                dogruCevap: ['A','B','C','D'].includes(String(s.dogruCevap || '').trim().toUpperCase()) ? String(s.dogruCevap).trim().toUpperCase() : 'A'
+                dogruCevap: ['A','B','C','D'].includes(String(s.dogruCevap || '').trim().toUpperCase()) ? String(s.dogruCevap).trim().toUpperCase() : 'A',
+                tip: 'coktan-secmeli',
+                aciklama: String(s.aciklama || '').trim().slice(0, 700),
+                kaynakAciklamasi: String(s.kaynakAciklamasi || (belge?.ad || '')).trim().slice(0, 300)
             })).filter(s => s.soru && s.secenekler.A && s.secenekler.B && s.secenekler.C && s.secenekler.D);
 
             if (duzeltilmis.length === 0) throw new Error('Yapay zeka eksiksiz soru oluşturamadı. Lütfen tekrar deneyin.');
@@ -1373,9 +1484,10 @@ Format:
         const k = socket.kurumKodu; if(!k) return;
         const veriler = await loadKurumData(k);
         if(!quizData.id) quizData.id = 'quiz_' + Date.now();
-        if(!veriler.quizler[quizData.id]) quizData.sorular = [];
-        else quizData.sorular = veriler.quizler[quizData.id].sorular;
-        veriler.quizler[quizData.id] = quizData;
+        const mevcut = veriler.quizler[quizData.id];
+        if(!mevcut) quizData.sorular = [];
+        else quizData.sorular = mevcut.sorular;
+        veriler.quizler[quizData.id] = { ...mevcut, ...quizData, sorular: quizData.sorular };
         await saveKurumData(k, 'quizler', veriler.quizler);
         io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
     });
@@ -1615,12 +1727,61 @@ Format:
     socketAsync(socket, 'kurum_tema_kaydet', async (data) => {
         const k = socket.kurumKodu;
         const { ayarlar } = await loadKurumData(k);
-        const izinli = ['etkinlikAdi','karsilamaMesaji','kapanisMesaji','anaRenk','vurguRengi','arkaPlanRengi','tema','animasyonlar','sesVarsayilan'];
+        const izinli = ['etkinlikAdi','acilisBasligi','karsilamaMesaji','kapanisMesaji','anaRenk','vurguRengi','arkaPlanRengi','qrRengi','tema','yaziTipi','arkaPlanDeseni','sesPaketi','podyumStili','sponsorLogo','markaGoster','animasyonlar','sesVarsayilan'];
         const yeni = ayarlariNormalizeEt({ ...ayarlar, ...Object.fromEntries(izinli.filter(key => data && Object.hasOwn(data,key)).map(key => [key,data[key]])) });
         await saveKurumData(k, 'ayarlar', yeni);
         io.to(`admin_${k}`).to(`ekran_${k}`).emit('ayarlar_guncelle', yeni);
         const pin = kurumAktifPin[k]; if(pin) io.to(`pin_${pin}`).emit('ayarlar_guncelle', yeni);
         socket.emit('admin_bildirim', 'Kurum teması ve etkinlik metinleri kaydedildi.');
+    });
+
+    socketAsync(socket, 'quiz_premium_ayar_kaydet', async (data) => {
+        const k = socket.kurumKodu;
+        const veriler = await loadKurumData(k);
+        const quiz = veriler.quizler[String(data?.quizId || '')];
+        if(!quiz) throw new Error('Quiz bulunamadı.');
+        const takim = normalizeTeams(data || {});
+        quiz.oyunModu = takim.takimModu ? 'takim' : 'bireysel';
+        quiz.takimModu = takim.takimModu;
+        quiz.takimlar = takim.takimlar;
+        quiz.katilimOnayi = Boolean(data?.katilimOnayi);
+        quiz.deneyimModu = ['kurumsal','eglenceli','sade'].includes(data?.deneyimModu) ? data.deneyimModu : 'kurumsal';
+        await saveKurumData(k, 'quizler', veriler.quizler);
+        io.to(`admin_${k}`).emit('verileri_guncelle', veriler.quizler);
+        socket.emit('admin_bildirim', takim.takimModu ? 'Takım modu ve premium etkinlik ayarları kaydedildi.' : 'Bireysel etkinlik ayarları kaydedildi.');
+    });
+
+    socketAsync(socket, 'etkinlik_arsivi_iste', async () => {
+        socket.emit('etkinlik_arsivi_guncelle', archiveSummaries(await etkinlikArsiviniGetir(socket.kurumKodu)));
+    });
+
+    socketAsync(socket, 'etkinlik_arsiv_detay_iste', async (arsivId) => {
+        const arsiv = await etkinlikArsiviniGetir(socket.kurumKodu);
+        const sonuc = arsiv.sonuclar.find(item => item.arsivId === String(arsivId || ''));
+        if(!sonuc) throw new Error('Arşiv kaydı bulunamadı.');
+        socket.emit('etkinlik_arsiv_detay', sonuc);
+    });
+
+    socketAsync(socket, 'etkinlik_arsiv_sil', async (arsivId) => {
+        const arsiv = await etkinlikArsiviniGetir(socket.kurumKodu);
+        const onceki = arsiv.sonuclar.length;
+        arsiv.sonuclar = arsiv.sonuclar.filter(item => item.arsivId !== String(arsivId || ''));
+        if(arsiv.sonuclar.length === onceki) throw new Error('Silinecek arşiv kaydı bulunamadı.');
+        await saveKurumData(socket.kurumKodu, 'etkinlik_arsivi', arsiv);
+        socket.emit('etkinlik_arsivi_guncelle', archiveSummaries(arsiv));
+        socket.emit('admin_bildirim', 'Etkinlik arşivden kalıcı olarak silindi.');
+    });
+
+    socket.on('reji_bekleme_ekrani', () => {
+        const k = socket.kurumKodu;
+        const oyun = oyunlar[kurumAktifPin[k]];
+        if(!oyun) return;
+        oyun.gorunum = 'bekleme';
+        oyun.oyunDuraklatildi = true;
+        io.to(`ekran_${k}`).emit('reji_bekleme_ekrani', { mesaj: 'Yayın kısa süre içinde devam edecek.' });
+        io.to(`pin_${oyun.pin}`).emit('reji_bekleme_ekrani', { mesaj: 'Yayın kısa süre içinde devam edecek.' });
+        adminOyunDurumuGonder(oyun, { durum: 'bekleme' });
+        aktifOyunKaydetPlanla(oyun, 50);
     });
 
     socketAsync(socket, 'sablondan_quiz_olustur', async (sablon) => {
@@ -1672,8 +1833,13 @@ Format:
         oyun.soruKayitlari[oyun.soruSirasi] = {
             soru: siradakiSoru.soru,
             secenekler: { ...siradakiSoru.secenekler },
-            dogruCevap: siradakiSoru.dogruCevap
+            tip: siradakiSoru.tip || 'coktan-secmeli',
+            dogruCevap: siradakiSoru.dogruCevap,
+            dogruCevaplar: siradakiSoru.dogruCevaplar || [],
+            aciklama: siradakiSoru.aciklama || null,
+            kaynakAciklamasi: siradakiSoru.kaynakAciklamasi || null
         };
+        oyun.soruBaslamaZamani = Date.now();
         const { dogruCevap, ...guvenliSoru } = siradakiSoru;
         const soruBilgisi = {
             ...guvenliSoru,
@@ -1739,8 +1905,6 @@ Format:
         const oyuncu = oyun.oyuncular[socket.oyuncuId];
         if(!oyuncu || oyuncu.socketId !== socket.id) return;
         if(typeof secilenSecenek === 'object' && Number(secilenSecenek?.soruNo) !== oyun.soruSirasi + 1) { socket.emit('cevap_reddedildi', 'Bu cevap önceki soruya ait.'); return; }
-        const secim = String(typeof secilenSecenek === 'object' ? secilenSecenek?.secim : secilenSecenek || '').trim().toUpperCase();
-        if(!CEVAP_HARFLERI.includes(secim)) return;
         oyuncu.cevaplar = Array.isArray(oyuncu.cevaplar) ? oyuncu.cevaplar : [];
         if(oyuncu.cevaplar[oyun.soruSirasi]) {
             socket.emit('cevap_reddedildi', 'Bu soru için cevabın zaten kaydedildi.');
@@ -1750,15 +1914,19 @@ Format:
         }
         const quiz = oyun.quizAnlik;
         if(!quiz?.sorular?.[oyun.soruSirasi]) return;
-        const dogruCevap = quiz.sorular[oyun.soruSirasi].dogruCevap;
-        const dogruMu = secim === dogruCevap;
-        oyuncu.cevaplar[oyun.soruSirasi] = { secim, dogruMu, cevapZamani: Date.now() };
-        if (dogruMu) {
-            oyuncu.puan += Number(quiz.puan) || 0;
+        const soru = quiz.sorular[oyun.soruSirasi];
+        const hamCevap = typeof secilenSecenek === 'object' ? secilenSecenek?.secim : secilenSecenek;
+        let degerlendirme;
+        try { degerlendirme = evaluateAnswer(soru, hamCevap); }
+        catch(error) { socket.emit('cevap_reddedildi', error.message || 'Geçersiz cevap.'); return; }
+        const cevapZamani = Date.now();
+        oyuncu.cevaplar[oyun.soruSirasi] = { ...degerlendirme, cevapZamani, cevapSuresiMs: Math.max(0, Math.min(3_600_000, cevapZamani - (oyun.soruBaslamaZamani || cevapZamani))) };
+        if (degerlendirme.dogruMu === true) {
+            oyuncu.puan += Math.round((Number(quiz.puan) || 0) * (Number(soru.puanCarpani) || 1));
         }
         const cevapSoruNo = oyun.soruSirasi + 1;
         await aktifOyunKaydet(oyun);
-        socket.emit('cevap_alindi', { secim, soruNo: cevapSoruNo });
+        socket.emit('cevap_alindi', { secim: degerlendirme.secim, soruNo: cevapSoruNo });
         adminOyunculariGonder(oyun);
         puanlariYayinla(oyun);
         aktifOyunKaydetPlanla(oyun);
@@ -1792,12 +1960,15 @@ Format:
         oyun.oyunDuraklatildi = false;
         oyun.durum = 'podyum';
         oyun.gorunum = 'podyum';
-        const quizler = (await loadKurumData(k)).quizler;
-        const tamSonuc = oyunSonucunuHazirla(oyun, quizler[oyun.quizId]);
+        const veriler = await loadKurumData(k);
+        const tamSonuc = oyunSonucunuHazirla(oyun, oyun.quizAnlik || veriler.quizler[oyun.quizId]);
         oyun.sonSonuc = tamSonuc;
-        const podyum = tamSonuc.oyuncular.map(({ isim, puan }) => ({ isim, puan }));
+        await etkinlikSonucunuArsivle(oyun, tamSonuc, veriler.ayarlar);
+        const podyum = tamSonuc.oyuncular.map(({ isim, puan, sira, takimAdi, dogruCevapSuresiMs }) => ({ isim, puan, sira, takimAdi, dogruCevapSuresiMs }));
         io.to(`ekran_${k}`).emit('quiz_bitti_final', podyum);
         io.to(`pin_${pin}`).emit('quiz_bitti_final', podyum);
+        io.to(`ekran_${k}`).emit('podyum_detayi', { takimModu: tamSonuc.takimModu, takimlar: tamSonuc.takimlar, oyuncular: podyum });
+        io.to(`pin_${pin}`).emit('podyum_detayi', { takimModu: tamSonuc.takimModu, takimlar: tamSonuc.takimlar, oyuncular: podyum });
         Object.entries(oyun.oyuncular).forEach(([id, oyuncu]) => {
             if(!oyuncu.manuel && oyuncu.socketId) {
                 io.to(oyuncu.socketId).emit('oyuncu_sonuc', kisiselSonucuHazirla(tamSonuc, id));
@@ -1817,8 +1988,9 @@ Format:
             socket.emit('admin_bildirim', 'Sonlandırılacak aktif bir quiz bulunmuyor.');
             return;
         }
-        const quizler = (await loadKurumData(k)).quizler;
-        const tamSonuc = oyun.sonSonuc || oyunSonucunuHazirla(oyun, quizler[oyun.quizId]);
+        const veriler = await loadKurumData(k);
+        const tamSonuc = oyun.sonSonuc || oyunSonucunuHazirla(oyun, oyun.quizAnlik || veriler.quizler[oyun.quizId]);
+        await etkinlikSonucunuArsivle(oyun, tamSonuc, veriler.ayarlar);
         await oyunOdasiniKapat(oyun);
         io.to(`admin_${k}`).emit('admin_sonuclar_guncelle', tamSonuc);
         io.to(`ekran_${k}`).emit('quiz_sonlandirildi', { mesaj: 'Yeni yarışma bekleniyor...' });
@@ -1844,18 +2016,18 @@ Format:
         const pin = kurumAktifPin[k];
         const oyun = oyunlar[pin];
         const oyuncu = oyun?.oyuncular?.[data?.id];
-        const secim = String(data?.secim || '').trim().toUpperCase();
-        if(!oyun || !oyuncu?.manuel || oyun.durum === 'podyum' || oyun.kurtarildi || oyun.soruSirasi < 0 || !CEVAP_HARFLERI.includes(secim)) return;
+        if(!oyun || !oyuncu?.manuel || oyun.durum === 'podyum' || oyun.kurtarildi || oyun.soruSirasi < 0) return;
         const quizler = (await loadKurumData(k)).quizler;
         const quiz = oyun.quizAnlik || quizler[oyun.quizId];
         const soru = quiz?.sorular?.[oyun.soruSirasi];
         if(!soru) return;
         oyuncu.cevaplar = Array.isArray(oyuncu.cevaplar) ? oyuncu.cevaplar : [];
         const onceki = oyuncu.cevaplar[oyun.soruSirasi];
-        if(onceki?.dogruMu) oyuncu.puan = Math.max(0, oyuncu.puan - (Number(quiz.puan) || 0));
-        const dogruMu = secim === soru.dogruCevap;
-        oyuncu.cevaplar[oyun.soruSirasi] = { secim, dogruMu, cevapZamani: Date.now(), manuel: true };
-        if(dogruMu) oyuncu.puan += Number(quiz.puan) || 0;
+        if(onceki?.dogruMu) oyuncu.puan = Math.max(0, oyuncu.puan - Math.round((Number(quiz.puan) || 0) * (Number(soru.puanCarpani) || 1)));
+        let sonuc; try { sonuc = evaluateAnswer(soru, data?.secim); } catch (_) { return; }
+        const cevapZamani = Date.now();
+        oyuncu.cevaplar[oyun.soruSirasi] = { ...sonuc, cevapZamani, cevapSuresiMs: Math.max(0, cevapZamani - (oyun.soruBaslamaZamani || cevapZamani)), manuel: true };
+        if(sonuc.dogruMu) oyuncu.puan += Math.round((Number(quiz.puan) || 0) * (Number(soru.puanCarpani) || 1));
         adminOyunculariGonder(oyun);
         puanlariYayinla(oyun);
     });
@@ -1957,7 +2129,7 @@ process.once('SIGTERM', guvenliKapanis);
 process.once('SIGINT', guvenliKapanis);
 
 const PORT = process.env.PORT || 3000;
-app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.4.1' }));
+app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.5.0', premium: true, archiveLimit: 10 }));
 aktifOyunlariYukle().then(() => server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor. Port: ${PORT}`);
     console.log(`Veri saklama modu: ${STORAGE_PROVIDER}`);

@@ -1,5 +1,6 @@
 const RENK_DESENI = /^#[0-9a-f]{6}$/i;
 const CEVAPLAR = ['A', 'B', 'C', 'D'];
+const { normalizeQuestionContent } = require('./premium');
 
 function sinirliMetin(deger, enFazla, varsayilan = '') {
     const metin = String(deger ?? '').trim();
@@ -9,13 +10,21 @@ function sinirliMetin(deger, enFazla, varsayilan = '') {
 function varsayilanAyarlar() {
     return {
         logo: null,
+        sponsorLogo: null,
         etkinlikAdi: 'Tazzy Quiz',
+        acilisBasligi: 'Canlı Bilgi Yarışması',
         karsilamaMesaji: 'Bilginizi gösterin, eğlenceye katılın!',
         kapanisMesaji: 'Katıldığınız için teşekkürler.',
         anaRenk: '#46178f',
         vurguRengi: '#16c7d9',
         arkaPlanRengi: '#24114f',
         tema: 'tazzy',
+        yaziTipi: 'Segoe UI',
+        arkaPlanDeseni: 'isik',
+        sesPaketi: 'tazzy',
+        podyumStili: 'sahne',
+        qrRengi: '#24114f',
+        markaGoster: true,
         sesVarsayilan: true,
         animasyonlar: true
     };
@@ -26,13 +35,21 @@ function ayarlariNormalizeEt(ham = {}) {
     return {
         ...temel,
         logo: typeof ham.logo === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,/i.test(ham.logo) && ham.logo.length < 1500000 ? ham.logo : null,
+        sponsorLogo: typeof ham.sponsorLogo === 'string' && (/^data:image\/(png|jpeg|webp);base64,/i.test(ham.sponsorLogo) || /^https:\/\//i.test(ham.sponsorLogo)) && ham.sponsorLogo.length < 700000 ? ham.sponsorLogo : null,
         etkinlikAdi: sinirliMetin(ham.etkinlikAdi, 80, temel.etkinlikAdi),
+        acilisBasligi: sinirliMetin(ham.acilisBasligi, 100, temel.acilisBasligi),
         karsilamaMesaji: sinirliMetin(ham.karsilamaMesaji, 160, temel.karsilamaMesaji),
         kapanisMesaji: sinirliMetin(ham.kapanisMesaji, 160, temel.kapanisMesaji),
         anaRenk: RENK_DESENI.test(String(ham.anaRenk || '')) ? ham.anaRenk : temel.anaRenk,
         vurguRengi: RENK_DESENI.test(String(ham.vurguRengi || '')) ? ham.vurguRengi : temel.vurguRengi,
         arkaPlanRengi: RENK_DESENI.test(String(ham.arkaPlanRengi || '')) ? ham.arkaPlanRengi : temel.arkaPlanRengi,
+        qrRengi: RENK_DESENI.test(String(ham.qrRengi || '')) ? ham.qrRengi : temel.qrRengi,
         tema: ['tazzy', 'gece', 'kurumsal', 'enerjik'].includes(ham.tema) ? ham.tema : temel.tema,
+        yaziTipi: ['Segoe UI', 'Arial', 'Verdana', 'Trebuchet MS', 'Georgia'].includes(ham.yaziTipi) ? ham.yaziTipi : temel.yaziTipi,
+        arkaPlanDeseni: ['isik', 'sade', 'geometrik', 'premium'].includes(ham.arkaPlanDeseni) ? ham.arkaPlanDeseni : temel.arkaPlanDeseni,
+        sesPaketi: ['tazzy', 'kurumsal', 'enerjik', 'sessiz'].includes(ham.sesPaketi) ? ham.sesPaketi : temel.sesPaketi,
+        podyumStili: ['sahne', 'sade', 'kurumsal'].includes(ham.podyumStili) ? ham.podyumStili : temel.podyumStili,
+        markaGoster: ham.markaGoster !== false,
         sesVarsayilan: ham.sesVarsayilan !== false,
         animasyonlar: ham.animasyonlar !== false
     };
@@ -68,11 +85,11 @@ function yayinOncesiKontrol(quiz, ek = {}) {
     let ustUsteCevap = 1;
     let enUzunSeri = 1;
     sorular.forEach((soru, index) => {
-        const secenekler = CEVAPLAR.map(harf => String(soru?.secenekler?.[harf] || '').trim());
-        if(!String(soru?.soru || '').trim() || secenekler.some(secenek => !secenek) || !CEVAPLAR.includes(soru?.dogruCevap)) eksik++;
+        const secenekler = Object.values(soru?.secenekler || {}).map(secenek => String(secenek || '').trim()).filter(Boolean);
+        try { normalizeQuestionContent(soru); } catch (_) { eksik++; }
         if(String(soru?.soru || '').length > 220 || secenekler.some(secenek => secenek.length > 120)) uzun++;
         if(!gorselBaglantisiGuvenliMi(soru?.gorsel)) gorselSorunu++;
-        if(new Set(secenekler.map(x => x.toLocaleLowerCase('tr-TR'))).size !== secenekler.length) tekrarSecenek++;
+        if(secenekler.length && new Set(secenekler.map(x => x.toLocaleLowerCase('tr-TR'))).size !== secenekler.length) tekrarSecenek++;
         if(index > 0 && sorular[index - 1]?.dogruCevap === soru?.dogruCevap) ustUsteCevap++;
         else ustUsteCevap = 1;
         enUzunSeri = Math.max(enUzunSeri, ustUsteCevap);
@@ -123,8 +140,12 @@ function oyunuSerilestir(oyun, simdi = Date.now()) {
             durum: (oyun.kurtarildi ? oyun.kurtarmaOncesiDurum : oyun.durum) || 'lobi',
             gorunum: oyun.gorunum || oyun.durum || 'lobi',
             sonSonuc: oyun.sonSonuc || null,
+            takimModu: Boolean(oyun.takimModu),
+            takimlar: Array.isArray(oyun.takimlar) ? oyun.takimlar : [],
+            arsivlendi: Boolean(oyun.arsivlendi),
             baslamaZamani: oyun.baslamaZamani || null,
             baslangicZamani: oyun.baslangicZamani || simdi,
+            soruBaslamaZamani: oyun.soruBaslamaZamani || null,
             kalanSure: Math.max(0, Number(oyun.kalanSure) || 0),
             prova: Boolean(oyun.prova)
         }

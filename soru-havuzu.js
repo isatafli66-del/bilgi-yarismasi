@@ -1,4 +1,5 @@
 const { randomUUID } = require('node:crypto');
+const { normalizeQuestionContent, SECENEK_HARFLERI } = require('./premium');
 
 const HARFLER = ['A', 'B', 'C', 'D'];
 
@@ -11,29 +12,18 @@ function metin(deger) {
 }
 
 function soruIcerigiTemizle(hamSoru = {}) {
-    const dogruCevap = metin(hamSoru.dogruCevap).toUpperCase();
-    const soru = {
-        soru: metin(hamSoru.soru),
-        gorsel: metin(hamSoru.gorsel) || null,
-        secenekler: Object.fromEntries(HARFLER.map(harf => [harf, metin(hamSoru.secenekler?.[harf])])),
-        dogruCevap
-    };
-
-    if(!soru.soru || HARFLER.some(harf => !soru.secenekler[harf]) || !HARFLER.includes(dogruCevap)) {
-        throw new Error('Soru metni, dört cevap seçeneği ve doğru cevap eksiksiz olmalıdır.');
-    }
-    return soru;
+    return normalizeQuestionContent(hamSoru);
 }
 
 function soruImzasi(hamSoru = {}) {
     const soru = soruIcerigiTemizle(hamSoru);
     return JSON.stringify([
+        soru.tip,
         soru.soru.toLocaleLowerCase('tr-TR'),
-        soru.secenekler.A.toLocaleLowerCase('tr-TR'),
-        soru.secenekler.B.toLocaleLowerCase('tr-TR'),
-        soru.secenekler.C.toLocaleLowerCase('tr-TR'),
-        soru.secenekler.D.toLocaleLowerCase('tr-TR'),
+        ...SECENEK_HARFLERI.map(harf => (soru.secenekler[harf] || '').toLocaleLowerCase('tr-TR')),
         soru.dogruCevap,
+        soru.dogruMetin,
+        soru.tolerans,
         (soru.gorsel || '').toLocaleLowerCase('tr-TR')
     ]);
 }
