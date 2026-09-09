@@ -1,9 +1,11 @@
-const CACHE_ADI = 'tazzy-quiz-v1.4.1';
+const CACHE_ADI = 'tazzy-quiz-v1.5.0';
 const UYGULAMA_DOSYALARI = [
   '/',
   '/manifest.webmanifest',
   '/v140.css',
   '/v140-common.js',
+  '/v150.css',
+  '/v150-player.js',
   '/icons/tazzy-192.png',
   '/icons/tazzy-512.png',
   '/Tazzy Siyah.png',
