@@ -30,7 +30,7 @@ test('v1.4.1 kılavuz, toplu silme ve görünür mobil giriş sözleşmesi', () 
     assert.match(player,/#girisAlani \{[^}]+min-height: 0;[^}]+overflow-y: auto/);
     assert.match(css,/\.tazzy-player #girisAlani \.katil-btn\{background:#ffffff;color:#321166/);
     assert.doesNotMatch(css,/\.katil-btn\{background:var\(--tazzy-primary\)/);
-    assert.match(fs.readFileSync(path.join(root,'public/service-worker.js'),'utf8'),/tazzy-quiz-v1.4.1/);
+    assert.match(fs.readFileSync(path.join(root,'public/service-worker.js'),'utf8'),/tazzy-quiz-v1.5.0/);
 });
 
 test('v1.4.1 toplu silme: yetki, kurum ayrımı, tek kayıt, tekrar, quiz ve canlı kopya korunur', {timeout:30000}, async () => {
