@@ -1,4 +1,4 @@
-const CACHE_ADI = 'tazzy-quiz-v1.5.0';
+const CACHE_ADI = 'tazzy-quiz-v1.5.1';
 const UYGULAMA_DOSYALARI = [
   '/',
   '/manifest.webmanifest',

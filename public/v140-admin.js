@@ -74,7 +74,7 @@
     countdown.append(el('label','Başlangıç sayacı (saniye)'), countdownInput, button('Sayacı Göster', () => socket.emit('lobi_sayaci_ayarla', Number(countdownInput.value))), button('Sayacı Kapat', () => socket.emit('lobi_sayaci_ayarla', 0), 'btn-gri'));
     live.append(countdown);
 
-    const theme = el('details', undefined, 't140-panel'); theme.append(el('summary','Kurum Teması ve Etkinlik Metinleri'));
+    const theme = el('details', undefined, 't140-panel'); theme.id = 'v140BrandPanel'; theme.append(el('summary','Kurum Teması ve Etkinlik Metinleri'));
     const themeGrid = el('div',undefined,'t140-grid'); const themeFields = {};
     for(const [key,title,type] of [['etkinlikAdi','Etkinlik adı','text'],['karsilamaMesaji','Karşılama mesajı','text'],['kapanisMesaji','Kapanış mesajı','text'],['anaRenk','Ana renk','color'],['vurguRengi','Vurgu rengi','color'],['arkaPlanRengi','Arka plan','color']]) {
         const label=el('label',title,'t140-field'); const input=el('input'); input.type=type;input.maxLength=key==='etkinlikAdi'?80:160;input.setAttribute('aria-label',title);label.append(input);themeFields[key]=input;themeGrid.append(label);
@@ -85,7 +85,7 @@
     theme.append(themeGrid,themeActions);document.getElementById('sekmeHazirlik').append(theme);
     socket.on('ayarlar_guncelle',data=>Object.entries(themeFields).forEach(([key,input])=>input.value=data[key]||''));
 
-    const templates = el('section', undefined, 't140-panel'); templates.append(el('h2', 'Etkinlik Şablonları'));
+    const templates = el('section', undefined, 't140-panel'); templates.id = 'v140TemplatesPanel'; templates.append(el('h2', 'Etkinlik Şablonları'));
     const templateGrid = el('div', undefined, 't140-grid');
     for(const [id, title, text] of [['otel','Otelcilik','Misafir deneyimi · 25 saniye'],['takim','Takım Çalışması','İletişim etkinliği · 20 saniye'],['genel','Genel Kültür','Eğlenceli yarışma · 20 saniye'],['oryantasyon','Oryantasyon','İş birliği ve iletişim · 25 saniye']]) {
         const item = el('div', undefined, 't140-template'); item.append(el('h3', title), el('p', text, 't140-muted'), button('Taslak Oluştur', () => socket.emit('sablondan_quiz_olustur', id))); templateGrid.append(item);
