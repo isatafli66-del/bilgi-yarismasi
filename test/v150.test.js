@@ -24,6 +24,30 @@ const event = (socket, name, timeout = 7000) => new Promise((resolve, reject) =>
 });
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+test('v1.5.1 sade yönetim paneli ve yönlendirmeli soru oluşturucu sözleşmesi', () => {
+    const admin = fs.readFileSync(path.join(root,'public/admin.html'),'utf8');
+    const premiumAdmin = fs.readFileSync(path.join(root,'public/v150-admin.js'),'utf8');
+    const css = fs.readFileSync(path.join(root,'public/v150.css'),'utf8');
+    const server = fs.readFileSync(path.join(root,'server.js'),'utf8');
+    for(const id of ['sekmeBtnAnaSayfa','sekmeBtnHazirlik','sekmeBtnReji','sekmeBtnSonuclar','kilavuzAcBtn']) assert.match(admin,new RegExp(`id="${id}"`));
+    assert.doesNotMatch(admin,/id="sekmeBtnCanli"|id="sekmeBtnKilavuz"/);
+    assert.doesNotMatch(admin,/Etkinlik Merkezi/);
+    assert.equal((admin.match(/<details(?: open)?><summary>\d+\./g)||[]).length,9);
+    assert.match(admin,/id="p150AiSourceMount"/);
+    assert.match(admin,/id="h_options"/);
+    assert.match(admin,/A seçeneğinin metni/);
+    assert.match(premiumAdmin,/\$\('p151RejiPlayers'\)\.append\(\$\('canliOyuncularPaneli'\)\)/);
+    assert.match(premiumAdmin,/\$\('p151ArchiveHost'\)\.append\(archiveSection\)/);
+    assert.match(premiumAdmin,/requested === 'kilavuz'/);
+    assert.match(premiumAdmin,/const aliases = \{ merkez:'anaSayfa', marka:'anaSayfa', canli:'reji', arsiv:'sonuclar' \}/);
+    assert.match(premiumAdmin,/function questionError\(question\)/);
+    assert.match(premiumAdmin,/picker\.dataset\.optionDraft/);
+    assert.match(premiumAdmin,/window\.aiBolumunuAc=function\(\)\{havuzFormKapat\(\)/);
+    assert.match(css,/\.p151-profile-hero/);
+    assert.match(css,/\.p151-guide-modal/);
+    assert.match(server,/socket\.emit\('kurum_profili_guncelle'/);
+});
+
 test('v1.5 soru türleri güvenli biçimde normalize edilir ve değerlendirilir', () => {
     const multi = normalizeQuestionContent({ soru:'İki doğruyu seç', tip:'coklu-secim', secenekler:{A:'Bir',B:'İki',C:'Üç',D:'Dört'}, dogruCevap:'A,C' });
     assert.equal(evaluateAnswer(multi, 'C,A').dogruMu, true);
@@ -81,7 +105,7 @@ test('v1.5 takım katılımı, yeni cevap türü, süre eşitliği ve arşiv uç
         await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),8000);child.stdout.on('data',x=>{if(String(x).includes('Sunucu çalışıyor')){clearTimeout(timer);resolve();}});child.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'));});});
         const cookie=await adminCookie(base,'PREMIUM','premium-test');
         const admin=io(base,{transports:['websocket'],forceNew:true,reconnection:false,extraHeaders:{Cookie:cookie}});sockets.push(admin);await event(admin,'connect');
-        const initialArchive=event(admin,'etkinlik_arsivi_guncelle');admin.emit('admin_giris','PREMIUM');assert.deepEqual(await initialArchive,[]);
+        const initialArchive=event(admin,'etkinlik_arsivi_guncelle'),profileEvent=event(admin,'kurum_profili_guncelle');admin.emit('admin_giris','PREMIUM');assert.deepEqual(await initialArchive,[]);const profile=await profileEvent;assert.equal(profile.kodu,'PREMIUM');assert.equal(profile.bitis,'2030-01-01');assert.equal(profile.aktif,true);assert.ok(profile.kalanGun>0);
         const started=event(admin,'oturum_basladi');admin.emit('quiz_baslat','q1');const {pin}=await started;
         async function player(token,team){const socket=io(base,{transports:['websocket'],forceNew:true,reconnection:false});sockets.push(socket);await event(socket,'connect');const ok=event(socket,'katilma_basarili');socket.emit('oyuncu_katil',{isim:token,pin,oyuncuToken:`token_${token}`,takimId:team});await ok;return socket;}
         const invalid=io(base,{transports:['websocket'],forceNew:true,reconnection:false});sockets.push(invalid);await event(invalid,'connect');const denied=event(invalid,'katilma_hatasi');invalid.emit('oyuncu_katil',{isim:'Takımsız',pin,oyuncuToken:'token_invalid'});assert.match(await denied,/takım/i);

@@ -19,9 +19,10 @@ test('v1.4.1 kılavuz, toplu silme ve görünür mobil giriş sözleşmesi', () 
     const admin=fs.readFileSync(path.join(root,'public/admin.html'),'utf8');
     const player=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
     const css=fs.readFileSync(path.join(root,'public/v140.css'),'utf8');
-    assert.match(admin,/id="sekmeBtnKilavuz"/);
+    assert.match(admin,/id="kilavuzAcBtn"/);
     assert.match(admin,/id="sekmeKilavuz"/);
-    assert.match(admin,/\['hazirlik','canli','sonuclar','kilavuz'\]/);
+    assert.match(admin,/id="sekmeBtnAnaSayfa"/);
+    assert.match(admin,/id="sekmeBtnReji"/);
     assert.doesNotMatch(admin,/Hazırlık çalışma düzeni|Yayın öncesi kısa kontrol/);
     assert.match(admin,/id="havuzTopluSilBtn"[^>]+disabled/);
     assert.match(admin,/await window.tazzyOnay/);
@@ -30,7 +31,7 @@ test('v1.4.1 kılavuz, toplu silme ve görünür mobil giriş sözleşmesi', () 
     assert.match(player,/#girisAlani \{[^}]+min-height: 0;[^}]+overflow-y: auto/);
     assert.match(css,/\.tazzy-player #girisAlani \.katil-btn\{background:#ffffff;color:#321166/);
     assert.doesNotMatch(css,/\.katil-btn\{background:var\(--tazzy-primary\)/);
-    assert.match(fs.readFileSync(path.join(root,'public/service-worker.js'),'utf8'),/tazzy-quiz-v1.5.0/);
+    assert.match(fs.readFileSync(path.join(root,'public/service-worker.js'),'utf8'),/tazzy-quiz-v1.5.1/);
 });
 
 test('v1.4.1 toplu silme: yetki, kurum ayrımı, tek kayıt, tekrar, quiz ve canlı kopya korunur', {timeout:30000}, async () => {
