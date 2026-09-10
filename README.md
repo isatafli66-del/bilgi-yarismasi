@@ -38,7 +38,7 @@ kuruma özel olarak arşivlenir; prova sonuçları arşivlenmez.
 Gerçek oturumun PIN'i, quizin bağımsız anlık kopyası, soru sırası, puanlar, verilen
 cevaplar, kalan süre ve yayın aşaması geçici olarak Supabase'e yazılır.
 Sunucu yeniden açıldığında süre **duraklatılmış** olarak geri gelir.
-Admin → Canlı Yayın → **Kurtarılan Oturumu Devam Ettir** ile devam edilir.
+Admin → Sunucu / Reji → **Kurtarılan Oturumu Devam Ettir** ile devam edilir.
 Lobi, soru, süre sonu, cevap yansıtma, ara skor, kapanış ve podyum görünümleri korunur.
 
 - Yarışmacı aynı cihaz/tarayıcıda kaldığında bağlantısı otomatik yenilenir.
@@ -125,7 +125,7 @@ Dört şablon, beşer örnek soruyla bağımsız quiz taslağı oluşturur:
 Taslakları kurumunuza göre düzenleyip kontrol edin. Şablondan üretilen quizlerin
 birbirleriyle bağı yoktur.
 
-Admin → Hazırlık → Kurum Teması bölümünde başlık, karşılama/kapanış, ana/vurgu/arka
+Admin → Ana Sayfa → Marka Stüdyosu bölümünde başlık, karşılama/kapanış, ana/vurgu/arka
 plan renkleri ve hareket/ses varsayılanları değiştirilebilir. MASTER ekranında da
 kurum bazlı aynı alanlar vardır. Logo ve kurum erişimi yalnızca MASTER'da yönetilir.
 
