@@ -1297,6 +1297,16 @@ io.on('connection', (socket) => {
         socket.adminDogrulandi = true;
         socket.join(`admin_${kurumKodu}`);
         const veriler = await kurumHavuzunuHazirla(kurumKodu);
+        const kurumKaydi = (await getKurumlar())[kurumKodu] || {};
+        const bitis = /^\d{4}-\d{2}-\d{2}$/.test(String(kurumKaydi.bitis || '')) ? String(kurumKaydi.bitis) : null;
+        const bitisZamani = bitis ? new Date(`${bitis}T23:59:59.999`).getTime() : null;
+        const kalanGun = Number.isFinite(bitisZamani) ? Math.ceil((bitisZamani - Date.now()) / 86400000) : null;
+        socket.emit('kurum_profili_guncelle', {
+            kodu: kurumKodu,
+            bitis,
+            aktif: kurumKaydi.aktif !== false && (kalanGun === null || kalanGun >= 0),
+            kalanGun
+        });
         socket.emit('verileri_guncelle', veriler.quizler);
         socket.emit('soru_havuzu_guncelle', veriler.soruHavuzu);
         socket.emit('soru_havuzu_migrasyon', veriler.havuzMeta);
@@ -2129,7 +2139,7 @@ process.once('SIGTERM', guvenliKapanis);
 process.once('SIGINT', guvenliKapanis);
 
 const PORT = process.env.PORT || 3000;
-app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.5.0', premium: true, archiveLimit: 10 }));
+app.get('/healthz', (req, res) => res.json({ status: 'ok', version: '1.5.1', premium: true, archiveLimit: 10 }));
 aktifOyunlariYukle().then(() => server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor. Port: ${PORT}`);
     console.log(`Veri saklama modu: ${STORAGE_PROVIDER}`);

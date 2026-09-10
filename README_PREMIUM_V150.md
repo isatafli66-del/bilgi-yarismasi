@@ -1,12 +1,20 @@
-# Tazzy Quiz 1.5.0 — Premium Etkinlik Paketi
+# Tazzy Quiz 1.5.1 — Premium Etkinlik Paketi
+
+## 1.5.1 yönetici paneli düzeni
+
+- Ana Sayfa: kurum profili, lisans özeti ve Marka Stüdyosu.
+- Hazırlık: quiz, takım ayarları, anlaşılır manuel soru oluşturucu, isteğe bağlı belge destekli AI asistanı ve soru havuzu.
+- Sunucu / Reji: sahne önizlemesi, canlı kontroller ve bağlı/manüel yarışmacı yönetimi.
+- Sonuçlar: üstte canlı veya açılan optik rapor, altta son 10 etkinlik arşivi.
+- Kullanım Kılavuzu: üst çubuktaki düğmeyle açılan yardım penceresi.
 
 ## Bu sürümde neler var?
 
-### Premium Etkinlik Merkezi
+### Kurum Ana Sayfası
 
-Yönetici ilk olarak Etkinlik Merkezi'ne gelir. Quiz ve havuz sayısı, canlı yayın
-durumu, arşiv doluluğu ve marka kimliği tek ekranda görünür. Buradan yeni etkinlik,
-prova, canlı yayın, içerik, reji, arşiv ve Marka Stüdyosu'na geçilebilir.
+Yönetici ilk olarak kurum Ana Sayfası'na gelir. Kurum kodu, lisans durumu, quiz ve
+havuz sayısı, yayın durumu, arşiv doluluğu ve Marka Stüdyosu aynı çalışma alanındadır.
+Hazırlık, Sunucu/Reji ve Sonuçlar için üstteki dört sade gezinme düğmesi kullanılır.
 
 ### Sunucu / Reji Modu
 

@@ -1,6 +1,6 @@
-# Tazzy Quiz 1.5.0 — Doğrulama Raporu
+# Tazzy Quiz 1.5.1 — Doğrulama Raporu
 
-Tarih: 9 Eylül 2026
+Tarih: 10 Eylül 2026
 
 ## Sonuç
 
@@ -37,10 +37,16 @@ Yerel sunucuda gerçek HTML/CSS/Socket.IO yüklemesiyle şu ekranlar açıldı:
 
 - Yarışmacı giriş ekranı: Oyuna Gir görünür, avatarlar ve PWA düğmesi erişilebilir.
 - Ana ekran: kurum bekleme görünümü ve bağlantı göstergesi doğru yerleşti.
-- Premium Etkinlik Merkezi: başlık, beş adımlı akış, içerik/yayın/arşiv/marka kartları
-  ve otelcilik/kurumsal şablonlar doğru stillerle açıldı.
+- Ana Sayfa: kurum profili, lisans özeti, kullanım kartları ve Marka Stüdyosu doğru yerleşti.
+- Hazırlık: takım ayarları, tek prova alanı, yönlendirmeli manuel soru türleri,
+  üç adımlı AI asistanı, havuz ve bağımsız quiz içeriği birlikte doğru açıldı.
 - Sunucu/Reji: sahne iframe önizlemesi, büyük yayın düğmeleri, PIN/soru/yanıtlayan
-  göstergeleri ve ana ekran bağlantı durumu doğru göründü.
+  göstergeleri, ana ekran bağlantı durumu ve yarışmacı yönetimi doğru göründü.
+- Sonuçlar: canlı/son açılan optik sonuç üstte, son 10 etkinlik arşivi altta açıldı.
+- Kullanım Kılavuzu: üst çubuk düğmesinden açıldı, dokuz bölüm gösterildi ve Escape
+  tuşuyla kapandı.
+- Sekiz soru türünde gerekli alanların görünürlük matrisi doğrulandı. Doğru/Yanlış
+  türüne geçip geri dönüldüğünde önceden yazılan seçeneklerin korunduğu görüldü.
 - Tarayıcı hata ve uyarı günlüğü boştu.
 
 ## Saha doğrulaması gereken noktalar

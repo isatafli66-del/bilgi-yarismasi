@@ -1,6 +1,8 @@
-# Tazzy Quiz 1.5.0 — Premium Etkinlik Paketi
+# Tazzy Quiz 1.5.1 — Sade Yönetim Paneli ve Premium Etkinlik Paketi
 
-Bu sürüm; Premium Etkinlik Merkezi, ayrı Sunucu/Reji görünümü, Marka Stüdyosu
+1.5.1 yönetici deneyimi; Ana Sayfa, Hazırlık, Sunucu / Reji ve Sonuçlar olmak üzere dört çalışma alanında toplandı. Kurum profili ve lisans özeti Marka Stüdyosu ile Ana Sayfa'da; yarışmacı yönetimi Reji'de; anlık ve arşiv sonuçları aynı Sonuçlar ekranında yer alır. Kullanım kılavuzu üst çubuktaki düğmeden açılır. Manuel ve yapay zekâ soru hazırlama akışları soru türüne göre yönlendirmeli hale getirildi.
+
+Bu sürüm; sade kurum Ana Sayfası, ayrı Sunucu/Reji görünümü, Marka Stüdyosu
 2.0, kurum bazında son 10 etkinlik arşivi, takım modu, sekiz soru/etkileşim türü,
 belge destekli AI üretimi, otelcilik/kurumsal şablonlar, süreye göre eşitlik bozma
 ve gösteri biçiminde podyum içerir. Ayrıntılı kullanım ve geçiş notları için
@@ -8,8 +10,8 @@ ve gösteri biçiminde podyum içerir. Ayrıntılı kullanım ve geçiş notlar�
 
 ## Önceki 1.4.1 düzeltmeleri
 
-- Yönetici paneline Kullanım Kılavuzu sekmesi eklendi. Genel kullanım açıklamaları
-  bu sekmede toplandı; işlem sırasında gerekli hata ve onay mesajları korundu.
+- Yönetici paneline Kullanım Kılavuzu eklendi. Genel kullanım açıklamaları
+  üst çubuktaki yardım penceresinde toplandı; işlem sırasında gerekli hata ve onay mesajları korundu.
 - Havuzdaki kutuları işaretleyip Seçilenleri Havuzdan Sil ile toplu silin.
   Görünenleri Seç filtreye uyanları seçer; Seçimi Kaldır tüm seçimleri temizler.
   Filtre arkasındaki seçimler onayda belirtilir. Silme kalıcıdır; quizlerdeki
